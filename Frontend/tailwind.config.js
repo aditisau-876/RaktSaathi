@@ -1,0 +1,71 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        surface: {
+          DEFAULT: "#F8F9FA",
+          pure: "#FFFFFF",
+          subtle: "#F1F3F5",
+          card: "#FFFFFF",
+          dim: "#E9ECEF",
+          border: "rgba(15, 23, 42, 0.08)",
+          "border-strong": "rgba(15, 23, 42, 0.16)",
+        },
+        ink: {
+          main: "#0F172A",
+          muted: "#334155",
+          secondary: "#475569",
+          faint: "#64748B",
+          subtle: "#94A3B8",
+        },
+        primary: {
+          DEFAULT: "#93000B",
+          dark: "#700007",
+          hover: "#7E0009",
+          crimson: "#BA1A1A",
+          alert: "#DC2626",
+          glow: "#FF4D4D",
+          dim: "#FFF1F0",
+          soft: "#FEE2E2",
+          border: "#FFDAD6",
+        },
+        status: {
+          critical: "#DC2626",
+          "critical-bg": "#FEF2F2",
+          "critical-border": "#FCA5A5",
+          "critical-text": "#991B1B",
+          warning: "#D97706",
+          "warning-bg": "#FFFBEB",
+          "warning-border": "#FCD34D",
+          "warning-text": "#92400E",
+          stable: "#059669",
+          "stable-bg": "#ECFDF5",
+          "stable-border": "#6EE7B7",
+          "stable-text": "#065F46",
+          info: "#0284C7",
+          "info-bg": "#F0F9FF",
+          "info-border": "#BAE6FD",
+          "info-text": "#0369A1",
+        },
+      },
+      fontFamily: {
+        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        display: ["'Plus Jakarta Sans'", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["'JetBrains Mono'", "ui-monospace", "monospace"],
+      },
+      boxShadow: {
+        "subtle": "0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.04)",
+        "card": "0 2px 6px 0 rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(15, 23, 42, 0.06)",
+        "card-elevated": "0 8px 24px -4px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.08)",
+        "card-critical": "0 8px 24px -4px rgba(147, 0, 11, 0.08), 0 0 0 1px rgba(147, 0, 11, 0.16)",
+      },
+    },
+  },
+  plugins: [],
+};
