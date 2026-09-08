@@ -1,7 +1,11 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
-export const TopHeader: React.FC = () => {
+interface TopHeaderProps {
+  onMenuToggle?: () => void;
+}
+
+export const TopHeader: React.FC<TopHeaderProps> = ({ onMenuToggle }) => {
   const location = useLocation();
 
   const getPageTitle = (pathname: string) => {
@@ -30,17 +34,29 @@ export const TopHeader: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 h-16 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-8 flex items-center justify-between shadow-xs">
-      {/* Breadcrumb Navigation */}
+    <header className="sticky top-0 z-40 h-16 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 flex items-center justify-between shadow-xs">
+      {/* Breadcrumb Navigation & Mobile Toggle */}
       <div className="flex items-center gap-3">
+        {onMenuToggle && (
+          <button
+            onClick={onMenuToggle}
+            className="lg:hidden p-1.5 -ml-1 rounded-lg text-slate-600 hover:text-ink-main hover:bg-slate-100 transition-colors"
+            aria-label="Toggle navigation menu"
+          >
+            <span className="material-symbols-outlined text-[22px]">menu</span>
+          </button>
+        )}
+
         <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[13px]">
           <Link to="/" className="font-bold text-primary tracking-tight hover:opacity-80">
             RaktSaathi
           </Link>
           <span className="text-slate-300 font-mono">/</span>
-          <span className="text-slate-500 font-medium">Operations</span>
-          <span className="text-slate-300 font-mono">/</span>
-          <span className="text-ink-main font-semibold">{getPageTitle(location.pathname)}</span>
+          <span className="text-slate-500 font-medium hidden sm:inline">Operations</span>
+          <span className="text-slate-300 font-mono hidden sm:inline">/</span>
+          <span className="text-ink-main font-semibold truncate max-w-[140px] sm:max-w-none">
+            {getPageTitle(location.pathname)}
+          </span>
         </nav>
       </div>
 

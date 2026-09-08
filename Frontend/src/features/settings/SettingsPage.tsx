@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GlassPanel } from '@/components/common/GlassPanel';
 import { Button } from '@/components/common/Button';
+import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { MOCK_INTEGRATIONS, MOCK_SYSTEM_METRICS } from '@/data/mockSystemHealth';
 
 export const SettingsPage: React.FC = () => {
@@ -9,11 +10,11 @@ export const SettingsPage: React.FC = () => {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const subTabs = [
-    { id: 'env', label: 'Environment & Health', icon: 'memory' },
-    { id: 'org', label: 'Organization & Governance', icon: 'corporate_fare' },
-    { id: 'int', label: 'Data Integrations', icon: 'hub' },
-    { id: 'thresh', label: 'Forecast Thresholds', icon: 'tune' },
-    { id: 'audit', label: 'Audit Ledger', icon: 'history_edu' },
+    { value: 'env', label: 'Environment & Health' },
+    { value: 'org', label: 'Governance & SOP' },
+    { value: 'int', label: 'Data Integrations' },
+    { value: 'thresh', label: 'Threshold Rules' },
+    { value: 'audit', label: 'Audit Ledger' },
   ];
 
   const handleSimulateHeartbeat = () => {
@@ -46,8 +47,11 @@ export const SettingsPage: React.FC = () => {
     <div className="space-y-8">
       {/* Toast */}
       {toastMsg && (
-        <div className="fixed top-20 right-8 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-xl border border-emerald-500/50 flex items-center gap-3 animate-fade-in">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+        <div
+          role="alert"
+          className="fixed top-20 right-8 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-card-elevated border border-emerald-500/60 flex items-center gap-3 animate-fade-in"
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-beacon" aria-hidden="true" />
           <span className="text-xs font-mono text-slate-200">{toastMsg}</span>
         </div>
       )}
@@ -62,7 +66,7 @@ export const SettingsPage: React.FC = () => {
           <h1 className="text-3xl font-display font-extrabold text-ink-main tracking-tight">
             System Configuration & Health
           </h1>
-          <p className="text-sm text-slate-500 leading-relaxed">
+          <p className="text-sm text-ink-muted leading-relaxed">
             Operational telemetry, edge connectivity status, Snowflake lakehouse persistence streaming, and synthetic sandbox governance.
           </p>
         </div>
@@ -86,48 +90,51 @@ export const SettingsPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. Sub-Navigation Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {subTabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-bold uppercase transition-all whitespace-nowrap ${
-              activeTab === tab.id
-                ? 'bg-white text-primary border border-slate-200 shadow-xs'
-                : 'text-slate-500 hover:bg-slate-100 hover:text-ink-main'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[17px]">{tab.icon}</span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
+      {/* 2. Sub-Navigation Tabs (Unified SegmentedControl) */}
+      <div className="overflow-x-auto pb-1">
+        <SegmentedControl
+          options={subTabs}
+          value={activeTab}
+          onChange={setActiveTab}
+          label="Settings domain navigation"
+        />
       </div>
 
-      {/* 3. High-Level Posture Tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {MOCK_SYSTEM_METRICS.map(m => (
-          <div key={m.title} className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-mono text-slate-400 uppercase font-bold tracking-wider">{m.title}</span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-mono text-[9px] font-bold">
-                {m.status.toUpperCase()}
-              </span>
+      {/* 3. Grouped Runtime Health Strip (Clean Utility-Focused Layout) */}
+      <div className="bg-white border border-slate-200/90 rounded-xl p-5 shadow-subtle">
+        <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 font-mono text-xs">
+          <span className="text-ink-main font-bold uppercase tracking-wider">
+            Cluster Runtime Health SLAs
+          </span>
+          <span className="text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            Delhi-NCR Node 01 &bull; 99.98% SLA
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+          {MOCK_SYSTEM_METRICS.map(m => (
+            <div key={m.title} className="p-3.5 bg-slate-50 rounded-lg border border-slate-200/80">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-ink-secondary uppercase font-bold">{m.title}</span>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  {m.status}
+                </span>
+              </div>
+              <strong className="text-xl font-display font-extrabold text-ink-main tabular-nums block mt-0.5">
+                {m.value}
+              </strong>
+              <p className="text-[11px] text-ink-secondary mt-1">{m.subtext}</p>
+              {m.delta && (
+                <span className="text-[10px] text-emerald-700 font-semibold block mt-1">
+                  {m.delta}
+                </span>
+              )}
             </div>
-            <div>
-              <div className="text-2xl font-display font-extrabold text-ink-main">{m.value}</div>
-              <p className="text-xs text-slate-500 mt-1">{m.subtext}</p>
-            </div>
-            {m.delta && (
-              <span className="text-[11px] font-mono text-emerald-600 font-semibold mt-2 block">
-                {m.delta}
-              </span>
-            )}
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      {/* 4. Persistence & Micro-Telemetry Grid */}
+      {/* 4. Grouped Settings Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left (7 cols): Data Connections & Persistence */}
         <div className="lg:col-span-7 space-y-4">
@@ -139,26 +146,26 @@ export const SettingsPage: React.FC = () => {
                   Data Connections & Lakehouse Persistence
                 </h2>
               </div>
-              <span className="text-xs font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              <span className="text-xs font-mono text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
                 ALL SYSTEMS NOMINAL
               </span>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {MOCK_INTEGRATIONS.map(int => (
-                <div key={int.name} className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-2">
+                <div key={int.name} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-bold font-display text-sm text-ink-main">{int.name}</span>
-                    <span className="text-xs font-mono font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    <span className="text-xs font-mono font-bold text-emerald-800 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-subtle">
                       Ping: {int.pingMs}ms &bull; {int.status}
                     </span>
                   </div>
-                  <div className="text-xs font-mono text-slate-500 truncate">
+                  <div className="text-xs font-mono text-ink-secondary truncate">
                     Cluster: {int.cluster}
                   </div>
-                  <div className="flex items-center justify-between text-xs text-slate-400 font-mono pt-1 border-t border-slate-200/60">
+                  <div className="flex items-center justify-between text-xs text-ink-secondary font-mono pt-1.5 border-t border-slate-200">
                     <span>Cadence: {int.syncCadence}</span>
-                    <span className="font-semibold text-ink-main">{int.recordsIn24h}</span>
+                    <strong className="text-ink-main tabular-nums">{int.recordsIn24h}</strong>
                   </div>
                 </div>
               ))}
@@ -176,26 +183,26 @@ export const SettingsPage: React.FC = () => {
               </h3>
             </div>
 
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-xs text-ink-secondary leading-relaxed">
               This sandbox is grounded on deterministic synthetic datasets modeling Delhi-NCR trauma cases, ISBT blood inventories, and cold-chain transit networks.
             </p>
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono space-y-2">
               <div className="flex justify-between">
-                <span className="text-slate-400">Sandbox Region:</span>
-                <span className="font-bold text-ink-main">Delhi-NCR Metro Hub</span>
+                <span className="text-ink-secondary">Sandbox Region:</span>
+                <strong className="text-ink-main">Delhi-NCR Metro Hub</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Monte Carlo Seed:</span>
-                <span className="font-bold text-ink-main">DL-2026-9042</span>
+                <span className="text-ink-secondary">Monte Carlo Seed:</span>
+                <strong className="text-ink-main">DL-2026-9042</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Synthetic Grounding:</span>
-                <span className="font-bold text-emerald-600">ZERO PII / HIPAA SAFE</span>
+                <span className="text-ink-secondary">Synthetic Grounding:</span>
+                <strong className="text-emerald-700">ZERO PII / HIPAA SAFE</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Active Incident:</span>
-                <span className="font-bold text-primary">INC-2026-0881 (Bank A, O−)</span>
+                <span className="text-ink-secondary">Active Incident:</span>
+                <strong className="text-primary">INC-2026-0881 (Bank A, O−)</strong>
               </div>
             </div>
 

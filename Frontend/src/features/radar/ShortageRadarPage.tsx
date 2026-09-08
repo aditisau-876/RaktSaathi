@@ -6,6 +6,7 @@ import { Stepper } from '@/components/common/Stepper';
 import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { BloodGroup } from '@/core/types/inventory';
 import { useIncident } from '@/context/IncidentContext';
+import { RadarNetwork3D } from './RadarNetwork3D';
 
 const SEROTYPES: BloodGroup[] = ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'];
 
@@ -13,6 +14,7 @@ export const ShortageRadarPage: React.FC = () => {
   const { facilities, setActiveIncident } = useIncident();
   const [selectedSerotype, setSelectedSerotype] = useState<BloodGroup>('O-');
   const [selectedFacilityId, setSelectedFacilityId] = useState<string>('BB-DEL-A');
+  const [viewMode, setViewMode] = useState<'both' | '3d' | 'matrix'>('both');
 
   const selectedFacility = facilities.find(f => f.facilityId === selectedFacilityId) || facilities[0];
   const selectedStock = selectedFacility.stocks[selectedSerotype];
@@ -45,11 +47,21 @@ export const ShortageRadarPage: React.FC = () => {
     }
   };
 
+  const handleFacilitySelect = (facilityId: string) => {
+    handleCellClick(facilityId, selectedSerotype);
+  };
+
   const serotypeOptions = SEROTYPES.map(bg => ({
     value: bg,
     label: bg,
     alertDot: bg === 'O-' || bg === 'AB-',
   }));
+
+  const viewModeOptions = [
+    { value: 'both', label: 'Unified View' },
+    { value: '3d', label: '3D Spatial Grid' },
+    { value: 'matrix', label: 'Inventory Matrix' },
+  ];
 
   return (
     <div className="space-y-8">
@@ -72,8 +84,8 @@ export const ShortageRadarPage: React.FC = () => {
         <Stepper currentStep={1} />
       </section>
 
-      {/* 2. Serotype Filter Strip & Operational Legend */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white border border-slate-200/90 p-3 rounded-xl shadow-subtle">
+      {/* 2. Serotype Filter Strip, Projection Controls & Operational Legend */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white border border-slate-200/90 p-3.5 rounded-xl shadow-subtle">
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-xs font-mono font-bold text-ink-secondary uppercase">
             Serotype Focus:
@@ -86,25 +98,50 @@ export const ShortageRadarPage: React.FC = () => {
           />
         </div>
 
-        {/* Operational Status Legend */}
-        <div className="flex items-center gap-4 text-xs font-mono text-ink-secondary">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm bg-primary" aria-hidden="true" />
-            <strong className="text-primary">Critical</strong> (≤8u)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm bg-amber-500" aria-hidden="true" />
-            <strong className="text-amber-800">Warning</strong> (9–14u)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm bg-slate-300" aria-hidden="true" />
-            <span className="text-ink-secondary">Nominal</span> (&gt;15u)
-          </span>
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-bold text-ink-secondary uppercase">
+              Mode:
+            </span>
+            <SegmentedControl
+              options={viewModeOptions}
+              value={viewMode}
+              onChange={setViewMode as any}
+              label="Radar view mode selector"
+              size="sm"
+            />
+          </div>
+
+          {/* Operational Status Legend */}
+          <div className="hidden xl:flex items-center gap-4 text-xs font-mono text-ink-secondary pl-3 border-l border-slate-200">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-primary" aria-hidden="true" />
+              <strong className="text-primary">Critical</strong> (≤8u)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-amber-500" aria-hidden="true" />
+              <strong className="text-amber-800">Warning</strong> (9–14u)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-slate-300" aria-hidden="true" />
+              <span className="text-ink-secondary">Nominal</span> (&gt;15u)
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* 3. The 8-Serotype Regional Blood Inventory Matrix */}
-      <GlassPanel className="p-0 overflow-hidden">
+      {/* 3. Interactive 3D Spatial Radar Network */}
+      {(viewMode === 'both' || viewMode === '3d') && (
+        <RadarNetwork3D
+          selectedSerotype={selectedSerotype}
+          selectedFacilityId={selectedFacilityId}
+          onSelectFacility={handleFacilitySelect}
+        />
+      )}
+
+      {/* 4. The 8-Serotype Regional Blood Inventory Matrix */}
+      {(viewMode === 'both' || viewMode === 'matrix') && (
+        <GlassPanel className="p-0 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200/80 flex items-center justify-between bg-slate-50/50">
           <div>
             <h2 className="font-display font-bold text-base text-ink-main">
@@ -254,8 +291,9 @@ export const ShortageRadarPage: React.FC = () => {
           </table>
         </div>
       </GlassPanel>
+      )}
 
-      {/* 4. Active Shortage Triage: Depletion Forecast & Threshold Crossover */}
+      {/* 5. Active Shortage Triage: Depletion Forecast & Threshold Crossover */}
       <GlassPanel isCritical elevation={2} className="p-6 lg:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
           <div>

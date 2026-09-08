@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { GlassPanel } from '@/components/common/GlassPanel';
 import { Button } from '@/components/common/Button';
+import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { MOCK_DOCUMENTS } from '@/data/mockDocuments';
 import { DocumentArtifact } from '@/core/types/ingestion';
+import { DataStream3D } from './DataStream3D';
 
 export const DataIngestionPage: React.FC = () => {
   const [selectedDocId, setSelectedDocId] = useState<string>('DOC-TRIAGE-01');
   const [simulatingBatch, setSimulatingBatch] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'preview' | 'json'>('preview');
 
   const selectedDoc: DocumentArtifact =
     MOCK_DOCUMENTS.find(d => d.id === selectedDocId) || MOCK_DOCUMENTS[0];
@@ -18,6 +19,12 @@ export const DataIngestionPage: React.FC = () => {
       setSimulatingBatch(false);
     }, 1800);
   };
+
+  const documentOptions = [
+    { value: 'DOC-TRIAGE-01', label: '1. Night Triage Sheet' },
+    { value: 'DOC-SURG-02', label: '2. Emergency Surgical Fax' },
+    { value: 'DOC-CAMP-03', label: '3. Camp Donation Log' },
+  ];
 
   const stages = [
     {
@@ -67,9 +74,9 @@ export const DataIngestionPage: React.FC = () => {
             <span>ETL PIPELINE INTELLIGENCE • SNOWFLAKE LAKEHOUSE EDGE</span>
           </div>
           <h1 className="text-3xl font-display font-extrabold text-ink-main tracking-tight">
-            Data Ingestion: Turn operational inputs into trusted intelligence.
+            Data Ingestion: Operational inputs into trusted intelligence
           </h1>
-          <p className="text-sm text-slate-500 leading-relaxed">
+          <p className="text-sm text-ink-muted leading-relaxed">
             Automated edge pipeline transforming physical paper triage registers, emergency fax requisitions, and cold-chain barcode manifests into verified clinical truth within milliseconds.
           </p>
         </div>
@@ -86,66 +93,54 @@ export const DataIngestionPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. KPI Banner */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Ingestion Throughput</span>
-            <span className="material-symbols-outlined text-primary text-[18px]">move_to_inbox</span>
+      {/* 2. Process Health & Pipeline Status Banner (Process-Focused, Not Generic Cards) */}
+      <div className="bg-white border border-slate-200/90 rounded-xl p-5 shadow-subtle">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 font-mono text-xs font-bold text-ink-main uppercase tracking-wider">
+            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-beacon" aria-hidden="true" />
+            <span>Ingestion Pipeline Operational Health</span>
           </div>
-          <div>
-            <div className="text-3xl font-display font-extrabold text-ink-main">1,420</div>
-            <p className="text-xs text-slate-500 mt-0.5">Records synced / 24h</p>
-          </div>
-          <span className="text-[11px] font-mono text-emerald-600 font-semibold mt-3 block">
-            +18.4% intake capacity
+          <span className="text-xs font-mono text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
+            5/5 Channels Online &bull; Zero Backlog
           </span>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Cloudinary OCR Confidence</span>
-            <span className="material-symbols-outlined text-primary text-[18px]">document_scanner</span>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80">
+            <span className="text-[10px] text-ink-secondary uppercase block">24h Throughput</span>
+            <strong className="text-xl font-display font-bold text-ink-main tabular-nums block mt-0.5">
+              1,420 Records
+            </strong>
+            <span className="text-[11px] text-emerald-700 font-bold">+18.4% capacity</span>
           </div>
-          <div>
-            <div className="text-3xl font-display font-extrabold text-ink-main">99.4%</div>
-            <p className="text-xs text-slate-500 mt-0.5">Mean extraction precision</p>
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80">
+            <span className="text-[10px] text-ink-secondary uppercase block">Cloudinary OCR Precision</span>
+            <strong className="text-xl font-display font-bold text-ink-main tabular-nums block mt-0.5">
+              99.4% Confidence
+            </strong>
+            <span className="text-[11px] text-ink-secondary">Edge Vision v4.2</span>
           </div>
-          <span className="text-[11px] font-mono text-slate-400 font-semibold mt-3 block">
-            AI Edge Vision Model v4.2
-          </span>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Snowflake DW Sync</span>
-            <span className="material-symbols-outlined text-primary text-[18px]">database</span>
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80">
+            <span className="text-[10px] text-ink-secondary uppercase block">Snowflake Sync Latency</span>
+            <strong className="text-xl font-display font-bold text-ink-main tabular-nums block mt-0.5">
+              14ms Stream
+            </strong>
+            <span className="text-[11px] text-sky-800 font-bold">Micro-batch TLS 1.3</span>
           </div>
-          <div>
-            <div className="text-3xl font-display font-extrabold text-ink-main">14ms</div>
-            <p className="text-xs text-slate-500 mt-0.5">Edge to lakehouse latency</p>
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80">
+            <span className="text-[10px] text-ink-secondary uppercase block">NBTC Clinical Gate</span>
+            <strong className="text-xl font-display font-bold text-emerald-700 tabular-nums block mt-0.5">
+              100% Pass Rate
+            </strong>
+            <span className="text-[11px] text-ink-secondary">Zero PII Leakage</span>
           </div>
-          <span className="text-[11px] font-mono text-sky-600 font-semibold mt-3 block">
-            Micro-batch streaming
-          </span>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Verified Pipelines</span>
-            <span className="material-symbols-outlined text-primary text-[18px]">hub</span>
-          </div>
-          <div>
-            <div className="text-3xl font-display font-extrabold text-primary">5 / 5</div>
-            <p className="text-xs text-slate-500 mt-0.5">All production paths online</p>
-          </div>
-          <span className="text-[11px] font-mono text-emerald-600 font-semibold mt-3 block">
-            Zero queue backlog
-          </span>
         </div>
       </div>
 
-      {/* 3. 5-Stage Transformation Architecture Flow */}
+      {/* 3. 3D Spatial Data Ingestion Corridor */}
+      <DataStream3D isSimulating={simulatingBatch} />
+
+      {/* 4. 5-Stage Transformation Architecture Flow */}
       <GlassPanel className="p-6 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div>
@@ -154,35 +149,35 @@ export const DataIngestionPage: React.FC = () => {
               End-to-End Clinical Data Transformation Corridor
             </h2>
           </div>
-          <span className="text-xs font-mono text-slate-400">Total Latency: ~198ms</span>
+          <span className="text-xs font-mono text-ink-secondary">Total Mean Latency: ~198ms</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           {stages.map(s => (
             <div
               key={s.step}
-              className={`p-4 rounded-xl border flex flex-col justify-between space-y-2 ${
+              className={`p-4 rounded-xl border flex flex-col justify-between space-y-2 transition-all ${
                 s.step === 5
-                  ? 'bg-red-50/70 border-primary/40'
+                  ? 'bg-red-50/60 border-primary/40'
                   : 'bg-slate-50 border-slate-200'
               }`}
             >
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-mono font-bold uppercase text-slate-400">
+                  <span className="text-[10px] font-mono font-bold uppercase text-ink-secondary">
                     Stage 0{s.step}
                   </span>
                   <span className={`material-symbols-outlined text-[17px] ${
                     s.step === 5 ? 'text-primary' : 'text-slate-400'
-                  }`}>
+                  }`} aria-hidden="true">
                     {s.icon}
                   </span>
                 </div>
                 <h3 className="font-display font-bold text-xs text-ink-main">{s.title}</h3>
-                <p className="text-[11px] text-slate-500 mt-1 leading-snug">{s.desc}</p>
+                <p className="text-[11px] text-ink-secondary mt-1 leading-snug">{s.desc}</p>
               </div>
               <span className={`text-[10px] font-mono font-bold pt-2 border-t border-slate-200/60 block ${
-                s.step === 5 ? 'text-primary' : 'text-slate-400'
+                s.step === 5 ? 'text-primary' : 'text-ink-secondary'
               }`}>
                 {s.subtext}
               </span>
@@ -199,27 +194,19 @@ export const DataIngestionPage: React.FC = () => {
             <h2 className="font-display font-bold text-lg text-ink-main">
               Interactive Document Ingestion Sandbox
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink-secondary">
               Select an operational artifact below to observe computer-vision field parsing and Snowflake lakehouse ingestion in real time.
             </p>
           </div>
 
-          {/* Document Picker Tabs */}
-          <div className="flex flex-wrap items-center gap-2 bg-slate-100 p-1 rounded-xl">
-            {MOCK_DOCUMENTS.map(doc => (
-              <button
-                key={doc.id}
-                onClick={() => setSelectedDocId(doc.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
-                  selectedDocId === doc.id
-                    ? 'bg-primary text-white shadow-xs'
-                    : 'text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {doc.type === 'triage' ? '1. Triage Sheet' : doc.type === 'fax' ? '2. Surgical Fax' : '3. Camp Log'}
-              </button>
-            ))}
-          </div>
+          {/* Unified Document Selector */}
+          <SegmentedControl
+            options={documentOptions}
+            value={selectedDocId}
+            onChange={setSelectedDocId}
+            size="sm"
+            label="Document artifact selector"
+          />
         </div>
 
         {/* Dual-Pane View: Document Preview (Left) & Structured JSON (Right) */}
@@ -271,7 +258,7 @@ export const DataIngestionPage: React.FC = () => {
           <div className="lg:col-span-6 bg-slate-950 text-slate-200 rounded-xl p-5 font-mono text-xs flex flex-col justify-between overflow-x-auto min-h-[360px] border border-slate-800">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <span className="text-[11px] text-slate-400 uppercase font-bold">
-                Snowflake Stream Payload (HL7 / JSON)
+                Snowflake Stream Payload (HL7 / FHIR JSON)
               </span>
               <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 text-[10px] font-bold border border-emerald-800">
                 SCHEMA LOCKED
