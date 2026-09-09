@@ -20,15 +20,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
       )}
 
       <aside
-        className={`fixed left-0 top-0 h-full w-64 bg-white border-r border-slate-200/80 z-50 flex flex-col justify-between select-none shadow-xs transition-transform duration-300 ease-in-out ${
+        className={`fixed left-0 top-0 h-full w-64 bg-white/88 backdrop-blur-xl border-r border-slate-200/70 z-50 flex flex-col justify-between select-none shadow-xs transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Brand Logo Header */}
           <div className="h-16 px-5 border-b border-slate-200/80 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white shadow-sm ring-2 ring-red-100 flex-shrink-0">
+            <NavLink to="/overview" className="flex items-center gap-3 group">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white shadow-sm ring-2 ring-red-100 flex-shrink-0 group-hover:scale-105 transition-transform">
                 <span className="material-symbols-outlined text-[19px]">vital_signs</span>
               </div>
               <div className="flex flex-col">
@@ -44,7 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
                   Shortage Intelligence
                 </span>
               </div>
-            </div>
+            </NavLink>
 
             {/* Mobile Close Button */}
             {onClose && (
@@ -132,6 +132,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
             <span>Delhi NCR Cluster</span>
             <span>Sync: 22:48 IST</span>
           </div>
+        </div>
+
+        {/* Portal Exit Links */}
+        <div className="px-3 pb-3 flex items-center justify-between text-[11px] font-mono text-slate-500">
+          <NavLink
+            to="/"
+            className="flex items-center gap-1.5 hover:text-primary transition-colors py-1 px-1.5 rounded hover:bg-slate-100"
+          >
+            <span className="material-symbols-outlined text-[15px]">public</span>
+            <span>Public Portal</span>
+          </NavLink>
+          <NavLink
+            to="/auth"
+            className="flex items-center gap-1 hover:text-primary transition-colors py-1 px-1.5 rounded hover:bg-slate-100"
+          >
+            <span className="material-symbols-outlined text-[15px]">logout</span>
+            <span>Exit</span>
+          </NavLink>
         </div>
       </aside>
     </>

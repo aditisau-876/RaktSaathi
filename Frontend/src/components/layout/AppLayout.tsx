@@ -19,7 +19,7 @@ export const AppLayout: React.FC = () => {
   ].includes(location.pathname);
 
   return (
-    <div className="min-h-screen bg-surface flex text-ink-main antialiased selection:bg-red-100 selection:text-primary">
+    <div className="min-h-screen bg-[#f7f8fa] flex text-ink-main antialiased selection:bg-red-100 selection:text-primary">
       {/* Fixed Architectural Navigation Shell (Desktop fixed, Mobile drawer) */}
       <Sidebar isOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />
 
@@ -29,7 +29,10 @@ export const AppLayout: React.FC = () => {
 
         {showRibbon && <ContinuityRibbon />}
 
-        <main className="flex-1 w-full max-w-[1720px] mx-auto p-4 sm:p-6 lg:p-8">
+        <main
+          key={location.pathname}
+          className="flex-1 w-full max-w-[1720px] mx-auto p-4 sm:p-6 lg:p-9 animate-fade-in"
+        >
           <Outlet />
         </main>
       </div>
