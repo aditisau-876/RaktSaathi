@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BloodDropSplash3D } from '@/components/landing/BloodDropSplash3D';
+import BloodDropSplash3D from '@/components/landing/BloodDropSplash3D';
 import { Button } from '@/components/common/Button';
 import { RadarNetwork3D } from '@/features/radar/RadarNetwork3D';
 
@@ -105,21 +105,12 @@ export const LandingPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="relative min-h-[560px] lg:min-h-[650px] flex items-center justify-center">
+              <div className="relative min-h-[700px] lg:min-h-[790px] flex items-center justify-center">
                 <div className="absolute w-[560px] h-[560px] rounded-full border border-red-100/80 landing-orbit" />
                 <div className="absolute w-[420px] h-[420px] rounded-full border border-slate-200/80 landing-orbit landing-orbit-slow" />
-                <div className="absolute right-[6%] top-[16%] hidden xl:block landing-floating-label">
-                  <span>01</span>
-                  <b>DROP</b>
-                  <small>impact sequence</small>
-                </div>
-                <div className="absolute left-[3%] bottom-[18%] hidden xl:block landing-floating-label">
-                  <span>02</span>
-                  <b>RIPPLE</b>
-                  <small>signal becomes action</small>
-                </div>
+                
                 <div className="landing-drop-stage">
-                  <BloodDropSplash3D className="h-[570px] lg:h-[650px]" />
+                  <BloodDropSplash3D/>
                 </div>
               </div>
             </div>
@@ -274,21 +265,23 @@ export const LandingPage: React.FC = () => {
           </div>
         </section>
 
-        <section className="relative overflow-hidden bg-slate-950 text-white py-28 sm:py-36">
-          <div className="absolute inset-0 landing-cta-grid" />
-          <div className="absolute w-[600px] h-[300px] rounded-full bg-red-700/15 blur-[100px] left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2" />
-          <div className="relative z-10 max-w-4xl mx-auto px-5 text-center">
-            <span className="section-kicker text-red-300">THE RESPONSE STARTS BEFORE THE RUNOUT</span>
-            <h2 className="mt-5 font-display text-4xl sm:text-6xl font-black tracking-[-0.05em] leading-[0.98]">
-              Predict it. Coordinate it. <span className="text-red-400">Respond in time.</span>
-            </h2>
-            <p className="mt-7 text-slate-300 max-w-2xl mx-auto leading-7">
-              RaktSaathi turns shortage intelligence into a clear operational path — from
-              the first warning to the action that closes the gap.
-            </p>
-            <div className="mt-9 flex flex-wrap justify-center gap-3">
-              <Link to="/auth"><Button variant="primary" size="lg" icon="arrow_forward" iconPosition="right">Enter RaktSaathi</Button></Link>
-              <Link to="/overview"><Button variant="secondary" size="lg" className="bg-white/10 text-white border-white/15 hover:bg-white/15">Launch demo sandbox</Button></Link>
+        <section className="relative overflow-hidden bg-[#fffafa] text-ink-main py-24 sm:py-32">
+          <div className="absolute inset-0 landing-cta-grid-light" />
+          <div className="absolute w-[520px] h-[280px] rounded-full bg-red-100/70 blur-[100px] left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2" />
+          <div className="relative z-10 max-w-[1100px] mx-auto px-5">
+            <div className="landing-cta-panel text-center">
+              <span className="section-kicker">THE RESPONSE STARTS BEFORE THE RUNOUT</span>
+              <h2 className="mt-5 font-display text-4xl sm:text-6xl font-black tracking-[-0.05em] leading-[0.98]">
+                Predict it. Coordinate it. <span className="text-primary">Respond in time.</span>
+              </h2>
+              <p className="mt-7 text-slate-500 max-w-2xl mx-auto leading-7">
+                RaktSaathi turns shortage intelligence into a clear operational path — from
+                the first warning to the action that closes the gap.
+              </p>
+              <div className="mt-9 flex flex-wrap justify-center gap-3">
+                <Link to="/auth"><Button variant="primary" size="lg" icon="arrow_forward" iconPosition="right">Enter RaktSaathi</Button></Link>
+                <Link to="/overview"><Button variant="secondary" size="lg">Launch demo sandbox</Button></Link>
+              </div>
             </div>
           </div>
         </section>

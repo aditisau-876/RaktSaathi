@@ -857,3 +857,438 @@ html { scroll-behavior: smooth; }
 .overview-metric.critical { border-color:#f1c3bf; box-shadow:0 10px 30px rgba(147,0,11,.05); }
 .overview-metric.critical strong { color:#a20a16; }
 .overview-metric.stable strong { color:#087f5b; }
+
+
+/* =========================================================================
+   RAKTSAATHI REFINED GLASS SYSTEM — WHITE / CRIMSON
+   ========================================================================= */
+
+:root {
+  --rs-paper: #fbfaf9;
+  --rs-white: #ffffff;
+  --rs-glass: rgba(255,255,255,.72);
+  --rs-glass-strong: rgba(255,255,255,.86);
+  --rs-glass-line: rgba(147,0,11,.10);
+  --rs-red: #93000b;
+  --rs-red-bright: #c1121f;
+  --rs-red-soft: #fff3f2;
+  --rs-red-wash: #fff8f7;
+  --rs-text: #101827;
+  --rs-muted: #667085;
+}
+
+body {
+  background:
+    radial-gradient(circle at 90% 0%, rgba(193,18,31,.045), transparent 28rem),
+    linear-gradient(180deg, #fbfaf9 0%, #ffffff 46%, #fbfaf9 100%);
+}
+
+/* A quieter, more premium global surface language */
+.surface-clean,
+.surface-elevated,
+.surface-glass {
+  border-radius: 20px;
+  transition:
+    transform .42s cubic-bezier(.16,1,.3,1),
+    box-shadow .42s cubic-bezier(.16,1,.3,1),
+    border-color .3s ease,
+    background-color .3s ease;
+}
+
+.surface-clean {
+  background: rgba(255,255,255,.86);
+  border-color: rgba(15,23,42,.065);
+  box-shadow:
+    0 10px 32px rgba(15,23,42,.035),
+    inset 0 1px 0 rgba(255,255,255,.95);
+}
+
+.surface-elevated {
+  background: rgba(255,255,255,.90);
+  border-color: rgba(15,23,42,.075);
+  box-shadow:
+    0 18px 50px rgba(15,23,42,.055),
+    inset 0 1px 0 rgba(255,255,255,.98);
+}
+
+.surface-glass {
+  background: rgba(255,255,255,.68);
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+  border-color: rgba(255,255,255,.88);
+  box-shadow:
+    0 18px 55px rgba(15,23,42,.055),
+    inset 0 1px 0 rgba(255,255,255,.98);
+}
+
+.surface-clean:hover,
+.surface-elevated:hover,
+.surface-glass:hover {
+  transform: translateY(-2px);
+  border-color: rgba(147,0,11,.12);
+  box-shadow:
+    0 24px 65px rgba(15,23,42,.075),
+    inset 0 1px 0 rgba(255,255,255,.98);
+}
+
+/* Operational shell */
+.landing-nav,
+header.sticky {
+  background: rgba(255,255,255,.72) !important;
+  backdrop-filter: blur(22px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(150%) !important;
+  border-color: rgba(15,23,42,.065) !important;
+}
+
+.rs-glass-card {
+  background: linear-gradient(
+    145deg,
+    rgba(255,255,255,.88),
+    rgba(255,255,255,.64)
+  );
+  border: 1px solid rgba(255,255,255,.92);
+  box-shadow:
+    0 18px 55px rgba(15,23,42,.055),
+    inset 0 1px 0 rgba(255,255,255,.95);
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+}
+
+/* Make the landing hero visual breathe */
+.landing-drop-stage {
+  width: min(100%, 760px);
+  min-height: 620px;
+  overflow: visible;
+  isolation: isolate;
+  background:
+    radial-gradient(
+      ellipse at 50% 45%,
+      rgba(255,255,255,.98) 0%,
+      rgba(255,255,255,.76) 35%,
+      rgba(255,247,246,.30) 58%,
+      rgba(255,255,255,0) 76%
+    );
+}
+
+.landing-drop-stage::before {
+  inset: 8%;
+  border-color: rgba(147,0,11,.075);
+  box-shadow:
+    0 0 0 28px rgba(147,0,11,.016),
+    0 0 0 58px rgba(147,0,11,.010),
+    0 0 0 92px rgba(147,0,11,.007);
+}
+
+.landing-drop-stage::after {
+  width: 55%;
+  height: 13%;
+  left: 22.5%;
+  bottom: 15%;
+  background:
+    radial-gradient(
+      ellipse,
+      rgba(147,0,11,.15),
+      rgba(193,18,31,.055) 35%,
+      transparent 72%
+    );
+  filter: blur(24px);
+}
+
+/* Radar is intentionally light now — no black dashboard box */
+.landing-radar-frame {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.94), rgba(255,248,247,.82));
+  border: 1px solid rgba(147,0,11,.10);
+  box-shadow:
+    0 28px 80px rgba(147,0,11,.075),
+    inset 0 1px 0 rgba(255,255,255,.95);
+  backdrop-filter: blur(18px);
+}
+
+.landing-radar-topbar {
+  color: #667085;
+  border-bottom-color: rgba(147,0,11,.08);
+}
+
+.landing-radar-topbar i {
+  background: #c1121f;
+  box-shadow: 0 0 0 5px rgba(193,18,31,.08);
+}
+
+/* Light premium platform feature instead of a black block */
+.platform-feature {
+  color: var(--rs-text);
+  background:
+    radial-gradient(circle at 82% 18%, rgba(193,18,31,.10), transparent 30%),
+    linear-gradient(145deg, #fffafa, #fff);
+  border: 1px solid rgba(147,0,11,.10);
+  box-shadow:
+    0 24px 70px rgba(147,0,11,.06),
+    inset 0 1px 0 #fff;
+}
+
+.platform-feature::after {
+  border-color: rgba(147,0,11,.08);
+  box-shadow:
+    0 0 0 35px rgba(147,0,11,.018),
+    0 0 0 70px rgba(147,0,11,.010);
+}
+
+.platform-feature p {
+  color: #667085;
+}
+
+.platform-feature a {
+  color: #93000b;
+}
+
+.platform-feature a:hover,
+.platform-tile a:hover {
+  color: #c1121f;
+}
+
+.platform-tile {
+  background: rgba(255,255,255,.72);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+/* White/red CTA replaces the old dark slab */
+.landing-cta-panel {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(34px, 6vw, 72px);
+  border-radius: 38px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(193,18,31,.075), transparent 42%),
+    rgba(255,255,255,.78);
+  border: 1px solid rgba(147,0,11,.10);
+  box-shadow:
+    0 28px 90px rgba(147,0,11,.065),
+    inset 0 1px 0 rgba(255,255,255,.98);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.landing-cta-panel::before {
+  content: "";
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  left: 50%;
+  top: -280px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border: 1px solid rgba(147,0,11,.08);
+  box-shadow:
+    0 0 0 28px rgba(147,0,11,.018),
+    0 0 0 58px rgba(147,0,11,.010);
+  pointer-events: none;
+}
+
+.landing-cta-grid-light {
+  opacity: .7;
+  background-image:
+    linear-gradient(rgba(147,0,11,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(147,0,11,.035) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(to bottom, transparent, black 25%, black 75%, transparent);
+}
+
+/* Smooth, restrained buttons */
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+.landing-primary-btn,
+.landing-secondary-btn {
+  transition:
+    transform .35s cubic-bezier(.16,1,.3,1),
+    box-shadow .35s cubic-bezier(.16,1,.3,1),
+    border-color .25s ease,
+    background-color .25s ease,
+    color .25s ease;
+}
+
+button:not(:disabled):hover {
+  transition-duration: .3s;
+}
+
+button:not(:disabled):active {
+  transform: translateY(0) scale(.985);
+}
+
+/* Refined story cards */
+.story-card,
+.platform-tile {
+  position: relative;
+  isolation: isolate;
+}
+
+.story-card::before,
+.platform-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      120deg,
+      rgba(255,255,255,.65),
+      transparent 38%
+    );
+  opacity: 0;
+  transition: opacity .35s ease;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.story-card:hover::before,
+.platform-tile:hover::before {
+  opacity: 1;
+}
+
+/* Dashboard shell gets a glassy porcelain canvas */
+.lg\:pl-64 {
+  background:
+    radial-gradient(circle at 88% 4%, rgba(193,18,31,.035), transparent 22rem);
+}
+
+@media (max-width: 900px) {
+  .landing-drop-stage {
+    min-height: 520px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-clean,
+  .surface-elevated,
+  .surface-glass,
+  button,
+  a {
+    transition: none !important;
+  }
+}
+
+
+/* =========================================================================
+   GLOBAL WHITE / CRIMSON OPERATIONAL POLISH
+   ========================================================================= */
+
+.rs-light-visual,
+.rs-light-console {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 85% 15%, rgba(193,18,31,.075), transparent 28%),
+    linear-gradient(145deg, rgba(255,255,255,.94), rgba(255,248,247,.84));
+  color: #101827;
+  border: 1px solid rgba(147,0,11,.09);
+  box-shadow:
+    0 18px 55px rgba(15,23,42,.045),
+    inset 0 1px 0 rgba(255,255,255,.98);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.rs-light-console {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.95), rgba(255,250,249,.88));
+}
+
+.rs-toast {
+  background: rgba(255,255,255,.88);
+  color: #101827;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    0 18px 50px rgba(15,23,42,.10),
+    inset 0 1px 0 rgba(255,255,255,.98);
+}
+
+/* Auth visual pane — white glass, crimson focal lighting */
+.auth-visual-pane {
+  color: #101827;
+  background:
+    radial-gradient(circle at 52% 43%, rgba(193,18,31,.10), transparent 30%),
+    radial-gradient(circle at 85% 8%, rgba(193,18,31,.055), transparent 25%),
+    linear-gradient(145deg, #fff, #fff7f6);
+}
+
+.auth-visual-glow {
+  background:
+    radial-gradient(circle at 50% 44%, rgba(193,18,31,.08), transparent 31%),
+    radial-gradient(circle at 80% 8%, rgba(255,255,255,.9), transparent 25%);
+  pointer-events: none;
+}
+
+.auth-visual-grid {
+  opacity: .42;
+  background-image:
+    linear-gradient(rgba(147,0,11,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(147,0,11,.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(to bottom, transparent, black 20%, black 80%, transparent);
+  pointer-events: none;
+}
+
+.auth-visual-pane .text-white {
+  color: #101827 !important;
+}
+
+.auth-visual-pane .text-slate-400 {
+  color: #667085 !important;
+}
+
+.auth-visual-pane .text-slate-500 {
+  color: #7a8494 !important;
+}
+
+.auth-visual-caption {
+  color: #93000b;
+  background: rgba(255,255,255,.72);
+  border-color: rgba(147,0,11,.10);
+  box-shadow: 0 12px 35px rgba(147,0,11,.06);
+}
+
+/* Make the auth shell feel like a floating glass object */
+.auth-visual-shell {
+  background: rgba(255,255,255,.50);
+  border-color: rgba(147,0,11,.08);
+  box-shadow:
+    0 28px 90px rgba(147,0,11,.07),
+    inset 0 1px 0 rgba(255,255,255,.95);
+}
+
+/* No opaque dark utility surfaces anywhere in the operational UI */
+.bg-slate-950 {
+  background-color: #fff8f7 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-visual-pane *,
+  .rs-light-visual *,
+  .rs-light-console * {
+    scroll-behavior: auto !important;
+  }
+}
+
+
+.rs-continuity-ribbon {
+  color: #101827;
+  background: rgba(255,255,255,.78);
+  border-bottom: 1px solid rgba(147,0,11,.09);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  box-shadow: 0 8px 28px rgba(15,23,42,.045);
+}
+
+.rs-continuity-ribbon .text-slate-600 {
+  color: #667085 !important;
+}
+
+.rs-continuity-ribbon .text-slate-700 {
+  color: #344054 !important;
+}

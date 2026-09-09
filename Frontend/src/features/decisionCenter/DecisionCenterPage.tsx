@@ -35,7 +35,7 @@ export const DecisionCenterPage: React.FC = () => {
       {toastMessage && (
         <div
           role="alert"
-          className="fixed top-20 right-8 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-card-elevated border border-emerald-500/60 flex items-center gap-3 animate-fade-in"
+          className="fixed top-20 right-8 z-50 rs-toast px-5 py-3.5 rounded-2xl shadow-sm border border-emerald-200 flex items-center gap-3 animate-fade-in"
         >
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-beacon" aria-hidden="true" />
           <div className="flex flex-col">

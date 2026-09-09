@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BloodDropSplash3D } from '@/components/landing/BloodDropSplash3D';
+import BloodDropSplash3D from '@/components/landing/BloodDropSplash3D';
 import { Button } from '@/components/common/Button';
 
 type AuthMode = 'signin' | 'register' | 'forgot';
@@ -43,9 +43,9 @@ export const AuthPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f7f5] text-ink-main flex items-stretch">
-      <section className="hidden lg:flex lg:w-[52%] relative overflow-hidden bg-[#0b0e15] text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(147,0,11,.26),transparent_34%),radial-gradient(circle_at_80%_10%,rgba(255,255,255,.05),transparent_24%)]" />
-        <div className="absolute inset-0 opacity-20" style={{backgroundImage:'linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px)',backgroundSize:'56px 56px'}} />
+      <section className="hidden lg:flex lg:w-[52%] relative overflow-hidden auth-visual-pane">
+        <div className="absolute inset-0 auth-visual-glow" />
+        <div className="absolute inset-0 auth-visual-grid" />
 
         <div className="relative z-10 w-full p-10 xl:p-14 flex flex-col justify-between">
           <Link to="/" className="flex items-center gap-3 w-fit group">
@@ -59,7 +59,7 @@ export const AuthPage: React.FC = () => {
           <div className="relative flex-1 flex flex-col justify-center">
             <div className="max-w-[680px]">
               <div className="auth-visual-shell">
-                <BloodDropSplash3D className="h-[400px] xl:h-[500px]" />
+                <BloodDropSplash3D/>
                 <div className="auth-visual-caption">
                   <span className="live-dot" />
                   <span>REAL-TIME PROCEDURAL VISUAL</span>

@@ -665,7 +665,7 @@ export const RadarNetwork3D: React.FC<RadarNetwork3DProps> = ({
       {/* Floating Hover Tooltip Card */}
       {hoveredNode && tooltipPos && (
         <div
-          className="absolute z-30 pointer-events-none -translate-x-1/2 -translate-y-full mb-3 p-3 rounded-xl bg-slate-900/95 text-white border border-slate-700 shadow-2xl backdrop-blur-md w-60 text-xs font-sans transition-opacity duration-150"
+          className="absolute z-30 pointer-events-none -translate-x-1/2 -translate-y-full mb-3 p-3 rounded-xl bg-white/92 text-ink-main border border-red-100 shadow-xl backdrop-blur-md w-60 text-xs font-sans transition-opacity duration-150"
           style={{ left: tooltipPos.x, top: tooltipPos.y - 12 }}
         >
           <div className="flex items-center justify-between pb-1.5 border-b border-slate-800 font-mono text-[10px]">
