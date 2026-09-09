@@ -13,7 +13,7 @@ export const ContinuityRibbon: React.FC = () => {
     <div
       role="region"
       aria-label="Active Incident Continuity Anchor"
-      className="bg-slate-900 text-white border-b border-slate-800 px-6 py-2 sticky top-16 z-30 shadow-subtle"
+      className="rs-continuity-ribbon px-6 py-2 sticky top-16 z-30 shadow-subtle"
     >
       <div className="max-w-[1720px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs">
         {/* Left: Incident Telemetry Strip */}
@@ -22,8 +22,8 @@ export const ContinuityRibbon: React.FC = () => {
           <span
             className={`font-mono text-[11px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1.5 ${
               isMitigated
-                ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/80'
-                : 'bg-red-950 text-red-200 border border-red-700/80'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : 'bg-red-50 text-primary border border-red-200'
             }`}
           >
             <span
@@ -36,14 +36,14 @@ export const ContinuityRibbon: React.FC = () => {
           </span>
 
           {/* Incident ID */}
-          <span className="font-mono text-[11px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+          <span className="font-mono text-[11px] text-slate-600 bg-white/70 px-1.5 py-0.5 rounded border border-slate-200">
             {activeIncident.incidentId}
           </span>
 
           <span className="text-slate-600 font-mono" aria-hidden="true">•</span>
 
           {/* Facility */}
-          <span className="font-semibold text-slate-100 flex items-center gap-1">
+          <span className="font-semibold text-slate-700 flex items-center gap-1">
             <span className="material-symbols-outlined text-[15px] text-slate-400">domain</span>
             <span>{activeIncident.facilityName}</span>
           </span>
@@ -51,15 +51,15 @@ export const ContinuityRibbon: React.FC = () => {
           <span className="text-slate-600 font-mono" aria-hidden="true">•</span>
 
           {/* Stock & Horizon Readings */}
-          <span className="font-mono text-slate-300">
-            Stock: <strong className="text-white">{activeIncident.currentStock}u</strong>
+          <span className="font-mono text-slate-600">
+            Stock: <strong className="text-ink-main">{activeIncident.currentStock}u</strong>
           </span>
 
           <span className="text-slate-600 font-mono" aria-hidden="true">•</span>
 
           {/* Deficit or Mitigated Pill */}
           {isMitigated ? (
-            <span className="inline-flex items-center gap-1 font-mono font-bold text-white bg-emerald-700 px-2.5 py-0.5 rounded shadow-subtle border border-emerald-500/30">
+            <span className="inline-flex items-center gap-1 font-mono font-bold text-white bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded shadow-subtle border border-emerald-200">
               <span className="material-symbols-outlined text-[13px]">check_circle</span>
               <span>Rebalance Active (+18u in transit)</span>
             </span>
@@ -76,7 +76,7 @@ export const ContinuityRibbon: React.FC = () => {
           {location.pathname !== '/radar' && (
             <Link
               to="/radar"
-              className="text-slate-300 hover:text-white px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors flex items-center gap-1"
+              className="text-slate-600 hover:text-primary px-2.5 py-1 rounded-xl bg-white/70 hover:bg-white border border-slate-200 transition-colors flex items-center gap-1"
             >
               <span className="material-symbols-outlined text-[14px]">radar</span>
               <span>Radar</span>
@@ -96,7 +96,7 @@ export const ContinuityRibbon: React.FC = () => {
           {location.pathname !== '/campaign-studio' && (
             <Link
               to="/campaign-studio"
-              className="font-bold text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded border border-slate-700 transition-colors flex items-center gap-1"
+              className="font-bold text-primary bg-white/75 hover:bg-white px-2.5 py-1 rounded-xl border border-red-100 transition-colors flex items-center gap-1"
             >
               <span className="material-symbols-outlined text-[14px]">campaign</span>
               <span>Campaign Studio</span>

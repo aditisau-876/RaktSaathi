@@ -70,7 +70,7 @@ export const DataStream3D: React.FC<DataStream3DProps> = ({
       stageName: 'Stage 04: Persistence',
       subtext: 'Transactional inventory stream',
       progress: 0.78,
-      color: '#06B6D4',
+      color: '#c1121f',
       metric: '14ms Commit',
     },
     {
@@ -227,7 +227,7 @@ export const DataStream3D: React.FC<DataStream3DProps> = ({
         ctx.shadowBlur = 0;
 
         // Gate Status Tag (Above Arch)
-        ctx.fillStyle = '#0F172A';
+        ctx.fillStyle = '#fff8f7';
         ctx.beginPath();
         ctx.roundRect(center.x - 45, top.y - 24, 90, 18, 4);
         ctx.fill();
@@ -266,7 +266,7 @@ export const DataStream3D: React.FC<DataStream3DProps> = ({
         // Raw fax (gray) -> OCR parsed (cyan) -> NBTC verified (emerald) -> lakehouse commit (teal) -> radar alert (red)
         let currentColor = '#94A3B8';
         if (p.progress > 0.85) currentColor = '#DC2626'; // Alert stage
-        else if (p.progress > 0.65) currentColor = '#06B6D4'; // Lakehouse
+        else if (p.progress > 0.65) currentColor = '#c1121f'; // Lakehouse
         else if (p.progress > 0.45) currentColor = '#10B981'; // NBTC pass
         else if (p.progress > 0.22) currentColor = '#38BDF8'; // Edge Vision
 
@@ -347,7 +347,7 @@ export const DataStream3D: React.FC<DataStream3DProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full h-[260px] bg-slate-950 rounded-2xl border border-slate-800 shadow-xl overflow-hidden select-none ${className}`}
+      className={`relative w-full h-[260px] rs-light-console rounded-[24px] border border-red-100/70 shadow-sm overflow-hidden select-none ${className}`}
     >
       {/* 3D Canvas */}
       <canvas
@@ -359,7 +359,7 @@ export const DataStream3D: React.FC<DataStream3DProps> = ({
 
       {/* Top Floating Controls */}
       <div className="absolute top-3 left-4 right-4 flex items-center justify-between pointer-events-none">
-        <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-slate-900/90 border border-slate-700/80 text-[11px] font-mono pointer-events-auto shadow-sm">
+        <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/85 border border-red-100 text-slate-600 text-[11px] font-mono pointer-events-auto shadow-sm">
           <span
             className={`w-2 h-2 rounded-full ${
               isSimulating ? 'bg-sky-400 animate-ping' : 'bg-emerald-400'
@@ -377,7 +377,7 @@ export const DataStream3D: React.FC<DataStream3DProps> = ({
         <div className="flex items-center gap-2 pointer-events-auto">
           <button
             onClick={() => setIsPaused(prev => !prev)}
-            className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white text-[10px] font-mono transition-colors shadow-sm flex items-center gap-1"
+            className="px-2 py-1 rounded bg-white/80 hover:bg-white border border-red-100 text-slate-600 hover:text-primary text-[10px] font-mono transition-colors shadow-sm flex items-center gap-1"
             title={isPaused ? 'Resume stream' : 'Pause stream'}
           >
             <span className="material-symbols-outlined text-[13px]">

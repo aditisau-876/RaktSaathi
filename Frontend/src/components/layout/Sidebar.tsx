@@ -13,7 +13,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
       {/* Mobile Backdrop Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 lg:hidden transition-opacity duration-200"
+          className="fixed inset-0 bg-white/45 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-200"
           onClick={onClose}
           aria-hidden="true"
         />

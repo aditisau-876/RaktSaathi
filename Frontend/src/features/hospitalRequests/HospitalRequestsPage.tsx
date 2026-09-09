@@ -244,7 +244,7 @@ export const HospitalRequestsPage: React.FC = () => {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-md p-4"
         >
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-card-elevated border border-slate-200 space-y-4 animate-scale-up">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">

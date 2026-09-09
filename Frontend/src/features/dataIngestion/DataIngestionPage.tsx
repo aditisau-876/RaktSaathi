@@ -212,8 +212,8 @@ export const DataIngestionPage: React.FC = () => {
         {/* Dual-Pane View: Document Preview (Left) & Structured JSON (Right) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
           {/* Left Pane: Scan Preview with Bounding Boxes (6 cols) */}
-          <div className="lg:col-span-6 bg-slate-900 text-white rounded-xl p-5 flex flex-col justify-between relative overflow-hidden min-h-[360px]">
-            <div className="flex items-center justify-between text-xs font-mono pb-3 border-b border-slate-800">
+          <div className="lg:col-span-6 rs-light-visual rounded-[24px] p-5 flex flex-col justify-between relative overflow-hidden min-h-[360px]">
+            <div className="flex items-center justify-between text-xs font-mono pb-3 border-b border-red-100/70">
               <span className="text-slate-400">{selectedDoc.source}</span>
               <span className="text-emerald-400 font-bold">OCR: {selectedDoc.ocrConfidence}%</span>
             </div>
@@ -233,7 +233,7 @@ export const DataIngestionPage: React.FC = () => {
                         ? 'bg-red-950/60 border-red-500 text-red-200'
                         : b.status === 'WARNING'
                         ? 'bg-amber-950/60 border-amber-500 text-amber-200'
-                        : 'bg-slate-900 border-slate-600 text-slate-200'
+                        : 'bg-white/75 border-red-100 text-slate-600'
                     }`}
                   >
                     <div>
@@ -248,15 +248,15 @@ export const DataIngestionPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="text-[10px] font-mono text-slate-400 flex items-center justify-between pt-2 border-t border-slate-800">
+            <div className="text-[10px] font-mono text-slate-400 flex items-center justify-between pt-2 border-t border-red-100/70">
               <span>Timestamp: {selectedDoc.timestamp}</span>
               <span className="text-emerald-400 font-bold">LAKEHOUSE COMMITTED</span>
             </div>
           </div>
 
           {/* Right Pane: Structured JSON View (6 cols) */}
-          <div className="lg:col-span-6 bg-slate-950 text-slate-200 rounded-xl p-5 font-mono text-xs flex flex-col justify-between overflow-x-auto min-h-[360px] border border-slate-800">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className="lg:col-span-6 rs-light-console text-slate-600 rounded-[24px] p-5 font-mono text-xs flex flex-col justify-between overflow-x-auto min-h-[360px] border border-red-100/70">
+            <div className="flex items-center justify-between pb-3 border-b border-red-100/70">
               <span className="text-[11px] text-slate-400 uppercase font-bold">
                 Snowflake Stream Payload (HL7 / FHIR JSON)
               </span>
@@ -269,7 +269,7 @@ export const DataIngestionPage: React.FC = () => {
               {JSON.stringify(selectedDoc.structuredPayload, null, 2)}
             </pre>
 
-            <div className="pt-2 border-t border-slate-800 text-[10px] text-slate-400 flex items-center justify-between">
+            <div className="pt-2 border-t border-red-100/70 text-[10px] text-slate-400 flex items-center justify-between">
               <span>Auto-parsed via Cloudinary Edge Webhook</span>
               <span className="text-white font-bold">Latency: 14ms</span>
             </div>
