@@ -1,6 +1,8 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { LandingPage } from '@/features/landing/LandingPage';
+import { AuthPage } from '@/features/auth/AuthPage';
 import { OverviewPage } from '@/features/overview/OverviewPage';
 import { ShortageRadarPage } from '@/features/radar/ShortageRadarPage';
 import { DecisionCenterPage } from '@/features/decisionCenter/DecisionCenterPage';
@@ -14,8 +16,13 @@ import { SettingsPage } from '@/features/settings/SettingsPage';
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
+      {/* Public Unauthenticated Routes */}
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/auth" element={<AuthPage />} />
+
+      {/* Authenticated Operational Command Scaffold */}
       <Route element={<AppLayout />}>
-        <Route path="/" element={<OverviewPage />} />
+        <Route path="/overview" element={<OverviewPage />} />
         <Route path="/radar" element={<ShortageRadarPage />} />
         <Route path="/decision-center" element={<DecisionCenterPage />} />
         <Route path="/campaign-studio" element={<CampaignStudioPage />} />
@@ -24,7 +31,10 @@ export const AppRoutes: React.FC = () => {
         <Route path="/donor-network" element={<DonorNetworkPage />} />
         <Route path="/data-ingestion" element={<DataIngestionPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+
+        {/* Operational Redirect Aliases */}
+        <Route path="/app" element={<Navigate to="/overview" replace />} />
+        <Route path="*" element={<Navigate to="/overview" replace />} />
       </Route>
     </Routes>
   );

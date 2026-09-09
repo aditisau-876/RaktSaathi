@@ -1,273 +1,132 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { RiskPulse } from '@/components/common/RiskPulse';
-import { GlassPanel } from '@/components/common/GlassPanel';
 import { Button } from '@/components/common/Button';
-import { MetricTile } from '@/components/common/MetricTile';
 import { useIncident } from '@/context/IncidentContext';
+import { RadarNetwork3D } from '@/features/radar/RadarNetwork3D';
 
 export const OverviewPage: React.FC = () => {
   const { activeIncident } = useIncident();
 
   return (
-    <div className="space-y-8">
-      {/* 1. Page Header & Operational Briefing */}
-      <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-        <div className="space-y-1.5">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-ink-secondary text-xs font-mono uppercase tracking-wider">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-beacon" aria-hidden="true" />
-            <span>08 September 2026</span>
-            <span>•</span>
-            <span>Regional Operations Command</span>
-            <span>•</span>
-            <span className="font-bold text-ink-main">Delhi-NCR Metro Hubs</span>
+    <div className="space-y-8 animate-fade-in">
+      <section className="flex flex-col xl:flex-row xl:items-end justify-between gap-5">
+        <div className="max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/75 border border-slate-200/80 shadow-subtle text-[9px] font-mono uppercase tracking-[.12em] text-slate-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-beacon" />
+            08 September 2026 · Delhi-NCR demo region
           </div>
-          <h1 className="text-3xl font-display font-extrabold text-ink-main tracking-tight">
-            Good morning, Dr. Rao
+          <h1 className="mt-4 font-display text-4xl sm:text-5xl font-black tracking-[-.055em] text-ink-main">
+            Good morning, Dr. Rao.
           </h1>
-          <p className="text-sm text-ink-muted max-w-2xl leading-relaxed">
-            Blood availability intelligence and predictive runout surveillance across 4 active regional clinical depots and 38 tier-1 surgical endpoints.
+          <p className="mt-3 text-sm sm:text-[15px] text-slate-500 leading-7 max-w-2xl">
+            One incident needs attention now: <strong className="text-slate-800">Metro Trauma Hub (Bank A)</strong> is projected to cross its O− safety floor in 18 hours. A verified surplus corridor from Bank B is available.
           </p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="px-4 py-2 rounded-xl bg-white border border-slate-200/90 shadow-subtle flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary text-[22px]">timelapse</span>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-ink-secondary font-bold">
-                Network Runout Buffer
-              </span>
-              <span className="font-display font-bold text-ink-main text-base leading-tight tabular-nums">
-                41.2 Hours
-              </span>
-            </div>
+        <div className="flex flex-wrap gap-2">
+          <div className="px-4 py-2.5 rounded-2xl bg-white/80 border border-slate-200 shadow-subtle">
+            <span className="block text-[8px] font-mono uppercase tracking-[.12em] text-slate-400">Runout horizon</span>
+            <strong className="block mt-1 text-primary font-display text-lg tabular-nums">T+18h</strong>
           </div>
-          <Link to="/radar">
-            <Button variant="secondary" icon="radar">
-              Inspect Radar
-            </Button>
-          </Link>
           <Link to="/decision-center">
-            <Button variant="primary" icon="bolt" iconPosition="right">
-              Triage Crisis
-            </Button>
+            <Button variant="primary" size="md" icon="arrow_forward" iconPosition="right">Open decision center</Button>
           </Link>
         </div>
       </section>
 
-      {/* 2. Hero: Dominant Incident Card with Signature Risk Pulse (Visually Dominant) */}
-      <GlassPanel isCritical elevation={2} className="p-6 lg:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Left: The Signature Risk Pulse Dial */}
-          <div className="lg:col-span-4 flex flex-col items-center justify-center p-6 bg-slate-50/70 border border-slate-200/80 rounded-2xl relative">
+      <section className="grid xl:grid-cols-[minmax(340px,.72fr)_minmax(0,1.28fr)] gap-5">
+        <div className="relative overflow-hidden rounded-[30px] bg-white/78 border border-red-100 shadow-[0_24px_70px_rgba(147,0,11,.08)] p-5 sm:p-7">
+          <div className="absolute -right-20 -top-20 w-64 h-64 rounded-full bg-red-100/40 blur-3xl" />
+          <div className="relative flex items-center justify-between mb-3">
+            <div>
+              <span className="section-kicker">RISK INSTRUMENT</span>
+              <h2 className="mt-1 font-display text-xl font-extrabold tracking-tight">O− reserve pressure</h2>
+            </div>
+            <span className="status-chip status-chip-critical">CRITICAL</span>
+          </div>
+          <div className="min-h-[330px] flex items-center justify-center">
             <RiskPulse
               size="xl"
               severity={activeIncident.severity}
               units={activeIncident.currentStock}
               mandatedFloor={activeIncident.mandatedFloor}
               label={`${activeIncident.bloodGroup} PRBC`}
-              sublabel={`Floor: ${activeIncident.mandatedFloor}u`}
+              sublabel={`Safety floor: ${activeIncident.mandatedFloor}u`}
             />
-            <div className="mt-6 flex items-center gap-2 text-[11px] font-mono text-ink-secondary">
-              <span className="w-2 h-2 rounded-full bg-primary animate-beacon" aria-hidden="true" />
-              <span>Sensor Telemetry Synced • T-0 Live</span>
-            </div>
           </div>
-
-          {/* Right: Dominant Incident Breakdown */}
-          <div className="lg:col-span-8 flex flex-col justify-between h-full space-y-6">
-            <div>
-              <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
-                <div>
-                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-primary">
-                    Dominant Network Shortage Incident
-                  </span>
-                  <h2 className="text-2xl font-display font-extrabold text-ink-main mt-0.5">
-                    {activeIncident.facilityName}
-                  </h2>
-                </div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-primary text-xs font-mono font-bold border border-red-200">
-                  <span className="material-symbols-outlined text-[16px] text-primary">crisis_alert</span>
-                  <span>Shortage Horizon: {activeIncident.hoursUntilBreach}h</span>
-                </div>
-              </div>
-
-              {/* 3 Metric Summary Readouts */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 my-4">
-                <div className="bg-slate-50/90 border border-slate-200/80 p-4 rounded-xl">
-                  <span className="text-[10px] font-mono uppercase text-ink-secondary font-bold tracking-wider">
-                    Projected Net Shortfall
-                  </span>
-                  <div className="flex items-baseline gap-1.5 mt-1">
-                    <span className="text-3xl font-display font-extrabold text-primary tabular-nums">
-                      {activeIncident.projectedGap}
-                    </span>
-                    <span className="text-sm font-display font-semibold text-primary">Units</span>
-                  </div>
-                  <span className="text-[11px] text-ink-secondary mt-1 block font-mono">
-                    Mandated floor breach at T+18h
-                  </span>
-                </div>
-
-                <div className="bg-slate-50/90 border border-slate-200/80 p-4 rounded-xl">
-                  <span className="text-[10px] font-mono uppercase text-ink-secondary font-bold tracking-wider">
-                    Requisition Pressure
-                  </span>
-                  <div className="flex items-baseline gap-1.5 mt-1">
-                    <span className="text-3xl font-display font-extrabold text-ink-main tabular-nums">+14</span>
-                    <span className="text-sm font-display font-semibold text-ink-secondary">Units/24h</span>
-                  </div>
-                  <span className="text-[11px] text-ink-secondary mt-1 block">
-                    2 Emergency Aortic OR bookings
-                  </span>
-                </div>
-
-                <div className="bg-slate-50/90 border border-slate-200/80 p-4 rounded-xl">
-                  <span className="text-[10px] font-mono uppercase text-ink-secondary font-bold tracking-wider">
-                    Replenishment Drag
-                  </span>
-                  <div className="flex items-baseline gap-1.5 mt-1">
-                    <span className="text-3xl font-display font-extrabold text-ink-main tabular-nums">−42%</span>
-                    <span className="text-sm font-display font-semibold text-ink-secondary">Inflow</span>
-                  </div>
-                  <span className="text-[11px] text-ink-secondary mt-1 block">
-                    Monsoon seasonal donor dip
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Narrative Progression Ribbon & Action Button */}
-            <div className="bg-slate-50 border border-slate-200/80 p-3.5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-ink-secondary">
-                <span className="font-bold text-primary">Prediction</span>
-                <span className="text-slate-300" aria-hidden="true">➔</span>
-                <span className="text-ink-main font-semibold">Evidence (Audit #8821)</span>
-                <span className="text-slate-300" aria-hidden="true">➔</span>
-                <span className="text-ink-main font-semibold">Bank B Transfer (Feasible)</span>
-                <span className="text-slate-300" aria-hidden="true">➔</span>
-                <span className="text-amber-800 font-bold">Action Pending</span>
-              </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <Link to="/decision-center">
-                  <Button variant="primary" size="sm" icon="bolt" iconPosition="right">
-                    Resolve in Decision Center
-                  </Button>
-                </Link>
-              </div>
-            </div>
+          <div className="relative flex items-center justify-between border-t border-slate-200/70 pt-4 text-[9px] font-mono uppercase tracking-[.08em] text-slate-400">
+            <span>Live telemetry synced</span>
+            <strong className="text-primary">−18u projected gap</strong>
           </div>
         </div>
-      </GlassPanel>
 
-      {/* 3. Operational Telemetry Tiles (High-Level Situational Awareness) */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label="Regional Operational Telemetry">
-        <MetricTile
-          label="Regional Supply Buffer"
-          value="1,420"
-          unit="Units"
-          subtext="Bank B +32u deployable surplus"
-          icon="inventory_2"
-          trend={{ value: "+48u (24h Net)", isPositive: true }}
-          progressPercent={82}
-        />
-
-        <MetricTile
-          label="Demand Acceleration"
-          value="48u"
-          unit="Pending"
-          subtext="18u STAT (AIIMS & Safdarjung ICUs)"
-          icon="crisis_alert"
-          isCritical={true}
-          trend={{ value: "1 Critical Shortage", isCritical: true }}
-          progressPercent={65}
-        />
-
-        <MetricTile
-          label="Mobilization Pool"
-          value="84"
-          unit="Donors"
-          subtext="Wave 1: 20 donors within 5km"
-          icon="group"
-          trend={{ value: "91.4% Conversion", isPositive: true }}
-          progressPercent={91}
-        />
-
-        <MetricTile
-          label="Data Ingestion Delta"
-          value="14ms"
-          unit="Stream"
-          subtext="Cloudinary OCR 99.4% confidence"
-          icon="database"
-          trend={{ value: "Snowflake Synced", isPositive: true }}
-          progressPercent={99}
-        />
+        <div className="min-w-0 rounded-[30px] bg-[#111722] border border-white/10 overflow-hidden shadow-[0_24px_70px_rgba(15,23,42,.16)]">
+          <div className="px-5 sm:px-7 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10">
+            <div>
+              <span className="text-[9px] font-mono uppercase tracking-[.14em] text-red-300">SPATIAL RESPONSE MAP</span>
+              <h2 className="mt-1 text-white font-display text-xl font-extrabold tracking-tight">Delhi-NCR supply topology</h2>
+            </div>
+            <Link to="/radar" className="text-[9px] font-mono uppercase tracking-[.1em] text-slate-300 hover:text-white inline-flex items-center gap-1">
+              Open full radar <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+            </Link>
+          </div>
+          <div className="h-[430px]">
+            <RadarNetwork3D selectedSerotype="O-" selectedFacilityId="BB-DEL-A" onSelectFacility={() => {}} />
+          </div>
+        </div>
       </section>
 
-      {/* 4. Action Corridors */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Link
-          to="/radar"
-          className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-subtle hover:border-red-300 hover:shadow-card transition-all group flex flex-col justify-between"
-        >
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-red-50 text-primary flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-              <span className="material-symbols-outlined text-[24px]">radar</span>
+      <section className="grid lg:grid-cols-[1.35fr_.65fr] gap-5">
+        <div className="rounded-[28px] bg-white/78 border border-slate-200/80 shadow-subtle p-6 sm:p-7">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <span className="section-kicker">THE INCIDENT IN FOUR ANSWERS</span>
+              <h2 className="mt-2 font-display text-2xl font-extrabold tracking-[-.035em]">Metro Trauma Hub · Bank A</h2>
             </div>
-            <h3 className="font-display font-bold text-lg text-ink-main group-hover:text-primary transition-colors">
-              Blood Shortage Radar
-            </h3>
-            <p className="text-sm text-ink-secondary mt-1.5 leading-relaxed">
-              Scan real-time inventory matrices across all 8 blood groups and 4 regional health facilities.
-            </p>
+            <span className="status-chip status-chip-critical">18h horizon</span>
           </div>
-          <div className="mt-6 flex items-center text-xs font-bold text-primary gap-1 font-mono">
-            <span>Explore Inventory Matrix</span>
-            <span className="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+          <div className="mt-7 grid sm:grid-cols-2 gap-3">
+            <div className="overview-answer critical">
+              <span>01 · WHAT</span>
+              <strong>8u available · −18u gap</strong>
+              <p>O− inventory is below the 26u safety floor; burn velocity is elevated.</p>
+            </div>
+            <div className="overview-answer">
+              <span>02 · WHERE</span>
+              <strong>Central Delhi · Pusa Road</strong>
+              <p>Connected to the emergency and ICU demand network in the demo region.</p>
+            </div>
+            <div className="overview-answer">
+              <span>03 · WHEN</span>
+              <strong>T+18h projected runout</strong>
+              <p>Forecast indicates depletion without an intervention.</p>
+            </div>
+            <div className="overview-answer stable">
+              <span>04 · ACTION</span>
+              <strong>Bank B · +32u deployable</strong>
+              <p>A simulated cold-chain corridor can close the projected gap.</p>
+            </div>
           </div>
-        </Link>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pt-5 border-t border-slate-200/70">
+            <span className="text-[10px] text-slate-400 font-mono">Prediction → evidence → action pending</span>
+            <Link to="/decision-center"><Button variant="primary" size="sm" icon="arrow_forward" iconPosition="right">Resolve in Decision Center</Button></Link>
+          </div>
+        </div>
 
-        <Link
-          to="/decision-center"
-          className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-subtle hover:border-red-300 hover:shadow-card transition-all group flex flex-col justify-between"
-        >
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-red-50 text-primary flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-              <span className="material-symbols-outlined text-[24px]">emergency</span>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-1 gap-3">
+          {[
+            ['REGIONAL SUPPLY BUFFER', '1,420', 'units', 'Bank B +32u deployable', 'stable'],
+            ['DEMAND ACCELERATION', '48', 'pending', '18u STAT · 1 critical shortage', 'critical'],
+            ['MOBILIZATION POOL', '84', 'donors', 'Wave 1 readiness', 'stable'],
+            ['DATA INGESTION', '14', 'ms stream', 'Cloudinary → Snowflake synced', 'neutral'],
+          ].map(([label, value, unit, detail, state]) => (
+            <div key={label} className={`overview-metric ${state}`}>
+              <span>{label}</span>
+              <div><strong>{value}</strong><small>{unit}</small></div>
+              <em>{detail}</em>
             </div>
-            <h3 className="font-display font-bold text-lg text-ink-main group-hover:text-primary transition-colors">
-              Shortage Decision Center
-            </h3>
-            <p className="text-sm text-ink-secondary mt-1.5 leading-relaxed">
-              Examine the deterministic evidence equation and verify Bank B transfer feasibility in 1-click.
-            </p>
-          </div>
-          <div className="mt-6 flex items-center text-xs font-bold text-primary gap-1 font-mono">
-            <span>Evaluate Intervention Options</span>
-            <span className="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
-          </div>
-        </Link>
-
-        <Link
-          to="/campaign-studio"
-          className="p-6 rounded-2xl bg-white border border-slate-200/90 shadow-subtle hover:border-red-300 hover:shadow-card transition-all group flex flex-col justify-between"
-        >
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-red-50 text-primary flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-              <span className="material-symbols-outlined text-[24px]">campaign</span>
-            </div>
-            <h3 className="font-display font-bold text-lg text-ink-main group-hover:text-primary transition-colors">
-              Campaign Studio
-            </h3>
-            <p className="text-sm text-ink-secondary mt-1.5 leading-relaxed">
-              Autonomous multi-channel emergency broadcast compilation (WhatsApp, Stories, Digital Billboards).
-            </p>
-          </div>
-          <div className="mt-6 flex items-center text-xs font-bold text-primary gap-1 font-mono">
-            <span>Preview Broadcast Formats</span>
-            <span className="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
-          </div>
-        </Link>
+          ))}
+        </div>
       </section>
     </div>
   );

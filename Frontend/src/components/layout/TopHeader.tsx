@@ -10,8 +10,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMenuToggle }) => {
 
   const getPageTitle = (pathname: string) => {
     switch (pathname) {
+      case '/overview':
       case '/':
-        return 'Overview';
+        return 'Overview Command';
       case '/radar':
         return 'Blood Shortage Radar';
       case '/decision-center':
@@ -34,7 +35,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMenuToggle }) => {
   };
 
   return (
-    <header className="sticky top-0 z-40 h-16 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 flex items-center justify-between shadow-xs">
+    <header className="sticky top-0 z-40 h-[68px] bg-white/78 backdrop-blur-xl border-b border-slate-200/70 px-4 sm:px-8 flex items-center justify-between shadow-[0_8px_30px_rgba(15,23,42,0.035)]">
       {/* Breadcrumb Navigation & Mobile Toggle */}
       <div className="flex items-center gap-3">
         {onMenuToggle && (
@@ -48,7 +49,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMenuToggle }) => {
         )}
 
         <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-[13px]">
-          <Link to="/" className="font-bold text-primary tracking-tight hover:opacity-80">
+          <Link to="/overview" className="font-bold text-primary tracking-tight hover:opacity-80">
             RaktSaathi
           </Link>
           <span className="text-slate-300 font-mono">/</span>
@@ -62,10 +63,21 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMenuToggle }) => {
 
       {/* Regional Selector & Live Telemetry Controls */}
       <div className="flex items-center gap-4">
+        {/* Public Site Shortcut */}
+        <Link
+          to="/"
+          className="hidden md:flex items-center gap-1.5 px-2.5 py-1 text-slate-500 hover:text-primary hover:bg-slate-100 rounded-lg text-[11px] font-mono transition-colors border border-transparent hover:border-slate-200"
+          title="Return to Public Landing Page"
+        >
+          <span className="material-symbols-outlined text-[15px]">public</span>
+          <span>Public Portal</span>
+        </Link>
+
         {/* Region Selector */}
         <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg text-[12px] font-medium text-ink-main cursor-pointer transition-colors shadow-xs">
           <span className="material-symbols-outlined text-primary text-[16px]">pin_drop</span>
-          <span>India / Delhi-NCR (Demo Region)</span>
+          <span className="hidden sm:inline">India / Delhi-NCR (Demo Region)</span>
+          <span className="sm:hidden">Delhi-NCR</span>
           <span className="material-symbols-outlined text-slate-400 text-[14px]">expand_more</span>
         </div>
 

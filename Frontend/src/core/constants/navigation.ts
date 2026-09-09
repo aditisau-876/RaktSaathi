@@ -15,7 +15,7 @@ export const NAVIGATION_CHAPTERS: NavChapter[] = [
   {
     title: 'Chapter 1 • Discovery',
     items: [
-      { name: 'Overview', path: '/', icon: 'grid_view' },
+      { name: 'Overview', path: '/overview', icon: 'grid_view' },
       { name: 'Blood Shortage Radar', path: '/radar', icon: 'radar', badge: 'ALERT', badgeType: 'alert' },
     ],
   },
