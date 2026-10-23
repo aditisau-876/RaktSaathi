@@ -273,3 +273,4 @@ export const RiskPulse: React.FC<RiskPulseProps> = ({
     </div>
   );
 };
+

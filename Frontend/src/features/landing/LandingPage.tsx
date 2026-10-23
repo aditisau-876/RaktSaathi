@@ -54,7 +54,7 @@ export const LandingPage: React.FC = () => {
       </header>
 
       <main>
-        <section className="relative min-h-[720px] lg:min-h-[790px] flex items-center overflow-hidden">
+        <section className="relative min-h-[720px] lg:min-h-[790px] flex items-center overflow-visible">
           <div className="landing-orb landing-orb-a" />
           <div className="landing-orb landing-orb-b" />
           <div className="landing-grid" />
