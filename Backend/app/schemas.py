@@ -39,3 +39,40 @@ class DonorOut(BaseModel):
     id: str; pseudonym: str; blood_group: str; location_zone: str; distance_km: float
     last_donation: date | None; available: bool; consented: bool; contact_masked: str
     model_config = ConfigDict(from_attributes=True)
+
+
+class InventoryStockOut(BaseModel):
+    id: int
+    bank_id: str
+    bank_name: str
+    bank_location: str
+    blood_group: BloodGroup
+    units: int
+    safety_floor: int
+    incoming_units: int
+    collection_date: date | None
+    expiry_date: date | None
+    stock_status: Literal["EXPIRED", "LOW", "HEALTHY", "NO_EXPIRY"]
+
+class InventoryStockUpdate(BaseModel):
+    safety_floor: int | None = Field(default=None, ge=0, le=100000)
+    collection_date: date | None = None
+    expiry_date: date | None = None
+
+class InventoryAdjustmentCreate(BaseModel):
+    units_delta: int = Field(ne=0, ge=-100000, le=100000)
+    reason: str = Field(min_length=3, max_length=500)
+    reference: str = Field(default="", max_length=100)
+
+class InventoryMovementOut(BaseModel):
+    id: int
+    stock_id: int
+    movement_type: str
+    units_delta: int
+    units_before: int
+    units_after: int
+    reason: str
+    reference: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

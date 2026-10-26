@@ -12,7 +12,7 @@ import { HospitalRequestsPage } from '@/features/hospitalRequests/HospitalReques
 import { DonorNetworkPage } from '@/features/donorNetwork/DonorNetworkPage';
 import { DataIngestionPage } from '@/features/dataIngestion/DataIngestionPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
-
+import InventoryPage from "@/features/inventory/InventoryPage";
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
@@ -27,6 +27,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="/decision-center" element={<DecisionCenterPage />} />
         <Route path="/campaign-studio" element={<CampaignStudioPage />} />
         <Route path="/blood-banks" element={<BloodBanksPage />} />
+        <Route path="/inventory" element={<InventoryPage />} />
         <Route path="/requests" element={<HospitalRequestsPage />} />
         <Route path="/donor-network" element={<DonorNetworkPage />} />
         <Route path="/data-ingestion" element={<DataIngestionPage />} />

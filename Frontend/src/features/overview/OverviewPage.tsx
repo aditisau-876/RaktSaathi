@@ -6,7 +6,7 @@ import { RiskPulse } from '@/components/common/RiskPulse';
 import { Button } from '@/components/common/Button';
 import { useIncident } from '@/context/IncidentContext';
 import { RadarNetwork3D } from '@/features/radar/RadarNetwork3D';
-import { apiGet } from '@/services/api';
+import { api } from '@/services/api';
 
 type RiskLevel = 'RED' | 'AMBER' | 'GREEN';
 
@@ -227,7 +227,7 @@ export const OverviewPage: React.FC = () => {
 
     try {
       // Existing backend endpoint: GET /api/v1/radar
-      const response = await apiGet<RadarResponse>('/radar');
+      const response = await api<RadarResponse>('/radar');
       const normalized = normalizeRadarResponse(response);
 
       setDashboard(normalized);

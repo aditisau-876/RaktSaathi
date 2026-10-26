@@ -76,3 +76,25 @@ class Campaign(Base):
     format: Mapped[str] = mapped_column(String(30), default="1:1_SQUARE")
     status: Mapped[str] = mapped_column(String(30), default="DRAFT")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class InventoryMovement(Base):
+    __tablename__ = "inventory_movements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    stock_id: Mapped[int] = mapped_column(
+        ForeignKey("inventory.id"),
+        index=True,
+        nullable=False,
+    )
+    movement_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    units_delta: Mapped[int] = mapped_column(Integer, nullable=False)
+    units_before: Mapped[int] = mapped_column(Integer, nullable=False)
+    units_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    reference: Mapped[str] = mapped_column(String(100), default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )

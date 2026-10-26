@@ -7,7 +7,7 @@ import { Stepper } from '@/components/common/Stepper';
 import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { BloodGroup } from '@/core/types/inventory';
 import { useIncident } from '@/context/IncidentContext';
-import { apiGet } from '@/services/api';
+import { api } from '@/services/api';
 import { RadarNetwork3D } from './RadarNetwork3D';
 
 const SEROTYPES: BloodGroup[] = [
@@ -181,7 +181,7 @@ export const ShortageRadarPage: React.FC = () => {
     setError(null);
 
     try {
-      const response = await apiGet<RadarApiResponse>('/radar');
+      const response = await api<RadarApiResponse>('/radar');
 
       if (!response || !Array.isArray(response.items)) {
         throw new Error(

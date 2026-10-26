@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .database import Base, engine, SessionLocal
 from .seed import seed_demo_data
-from .routers import core, requests, donors, media, integrations
+from .routers import core, requests, donors, media, integrations, inventory_management
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,6 +32,7 @@ app.include_router(requests.router,prefix='/api/v1')
 app.include_router(donors.router,prefix='/api/v1')
 app.include_router(media.router,prefix='/api/v1')
 app.include_router(integrations.router,prefix='/api/v1')
+app.include_router(inventory_management.router, prefix="/api/v1")
 
 @app.get('/')
 def root(): return {'service':'RaktSaathi API','docs':'/docs','api_prefix':'/api/v1'}
