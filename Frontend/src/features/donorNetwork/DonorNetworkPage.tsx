@@ -1,254 +1,571 @@
-import React, { useState } from 'react';
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { GlassPanel } from '@/components/common/GlassPanel';
 import { Button } from '@/components/common/Button';
 import { MetricTile } from '@/components/common/MetricTile';
 import { SegmentedControl } from '@/components/common/SegmentedControl';
-import { MOCK_DONORS, MOCK_DONOR_WAVES } from '@/data/mockDonors';
+
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
+).replace(/\/$/, '');
+
+type WaveFilter = 'ALL' | 1 | 2 | 3;
+
+interface ApiDonor {
+  id: string;
+  pseudonym?: string | null;
+  blood_group: string;
+  location_zone?: string | null;
+  distance_km?: number | null;
+  last_donation?: string | null;
+  available: boolean;
+  consented: boolean;
+  contact_masked?: string | null;
+}
+
+interface Donor {
+  id: string;
+  pseudonym: string;
+  bloodGroup: string;
+  locationZone: string;
+  distanceKm: number | null;
+  lastDonation: string | null;
+  available: boolean;
+  consented: boolean;
+  contactMasked: string;
+  wave: 1 | 2 | 3 | null;
+}
+
+function getWave(distance: number | null): 1 | 2 | 3 | null {
+  if (distance === null || distance < 0 || distance > 8) return null;
+  if (distance <= 3) return 1;
+  if (distance <= 5) return 2;
+  return 3;
+}
+
+function mapDonor(item: ApiDonor): Donor {
+  const distance =
+    typeof item.distance_km === 'number' &&
+    Number.isFinite(item.distance_km)
+      ? item.distance_km
+      : null;
+
+  return {
+    id: item.id,
+    pseudonym: item.pseudonym || 'Anonymous donor',
+    bloodGroup: item.blood_group,
+    locationZone: item.location_zone || 'Zone not specified',
+    distanceKm: distance,
+    lastDonation: item.last_donation || null,
+    available: item.available,
+    consented: item.consented,
+    contactMasked: item.contact_masked || 'Not provided',
+    wave: getWave(distance),
+  };
+}
+
+async function getErrorMessage(response: Response): Promise<string> {
+  try {
+    const body = await response.json();
+    if (typeof body.detail === 'string') return body.detail;
+    if (body.detail) return JSON.stringify(body.detail);
+  } catch {
+    // Fall back to the HTTP status message.
+  }
+
+  return `Request failed (${response.status} ${response.statusText})`;
+}
+
+function formatLastDonation(value: string | null): string {
+  if (!value) return 'Not recorded';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
 
 export const DonorNetworkPage: React.FC = () => {
-  const [selectedWave, setSelectedWave] = useState<number | 'ALL'>('ALL');
-  const [mobilizedWave, setMobilizedWave] = useState<number | null>(null);
+  const [donors, setDonors] = useState<Donor[]>([]);
+  const [selectedWave, setSelectedWave] = useState<WaveFilter>('ALL');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
-  const filteredDonors = MOCK_DONORS.filter(d => {
-    if (selectedWave === 'ALL') return true;
-    return d.wave === selectedWave;
-  });
+  const fetchDonors = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    setNotice('');
 
-  const handleMobilize = (waveNum: number) => {
-    setMobilizedWave(waveNum);
-    setTimeout(() => setMobilizedWave(null), 5000);
-  };
+    try {
+      const response = await fetch(`${API_BASE_URL}/donors`);
+
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response));
+      }
+
+      const data: ApiDonor[] = await response.json();
+
+      if (!Array.isArray(data)) {
+        throw new Error('The donor API did not return a list.');
+      }
+
+      setDonors(data.map(mapDonor));
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `${err.message} Check that FastAPI is running and the API URL is correct.`
+          : 'Unable to load donors from the backend.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchDonors();
+  }, [fetchDonors]);
+
+  const eligibleDonors = useMemo(
+    () => donors.filter((donor) => donor.available && donor.consented),
+    [donors]
+  );
+
+  const withinEightKm = useMemo(
+    () =>
+      eligibleDonors.filter(
+        (donor) => donor.distanceKm !== null && donor.distanceKm <= 8
+      ),
+    [eligibleDonors]
+  );
+
+  const waveCounts = useMemo(
+    () => ({
+      1: withinEightKm.filter((donor) => donor.wave === 1).length,
+      2: withinEightKm.filter((donor) => donor.wave === 2).length,
+      3: withinEightKm.filter((donor) => donor.wave === 3).length,
+    }),
+    [withinEightKm]
+  );
+
+  const filteredDonors = useMemo(() => {
+    const source =
+      selectedWave === 'ALL' ? donors : donors.filter(
+        (donor) => donor.wave === selectedWave
+      );
+
+    return source;
+  }, [donors, selectedWave]);
 
   const waveFilterOptions = [
-    { value: 'ALL' as const, label: 'All Waves', badge: MOCK_DONORS.length },
-    { value: 1 as const, label: 'Wave 1 (<3km)', alertDot: true },
-    { value: 2 as const, label: 'Wave 2 (<5km)' },
-    { value: 3 as const, label: 'Wave 3 (<8km)' },
+    { value: 'ALL' as const, label: 'All Donors', badge: donors.length },
+    {
+      value: 1 as const,
+      label: 'Wave 1 (≤3 km)',
+      badge: waveCounts[1],
+      alertDot: true,
+    },
+    {
+      value: 2 as const,
+      label: 'Wave 2 (≤5 km)',
+      badge: waveCounts[2],
+    },
+    {
+      value: 3 as const,
+      label: 'Wave 3 (≤8 km)',
+      badge: waveCounts[3],
+    },
   ];
+
+  const handleReviewWave = (wave: 1 | 2 | 3) => {
+    setSelectedWave(wave);
+    setNotice(
+      `Wave ${wave} selected. Review consent and availability before any outreach. No messages have been sent.`
+    );
+  };
 
   return (
     <div className="space-y-8">
-      {/* Toast Alert */}
-      {mobilizedWave && (
-        <div
-          role="alert"
-          className="fixed top-20 right-8 z-50 rs-toast px-5 py-3.5 rounded-2xl shadow-sm border border-emerald-200 flex items-center gap-3 animate-fade-in"
-        >
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-beacon" aria-hidden="true" />
-          <span className="text-xs font-mono text-slate-200">
-            Wave {mobilizedWave} dispatch transmitted to {MOCK_DONOR_WAVES[mobilizedWave - 1].donorCount} pre-screened O− donors!
-          </span>
-        </div>
-      )}
-
-      {/* 1. Header & Controls */}
+      {/* Header */}
       <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-4 border-b border-slate-200">
         <div className="space-y-1.5 max-w-3xl">
           <div className="flex items-center gap-2 text-xs font-mono text-primary font-bold tracking-wider">
-            <span className="material-symbols-outlined text-[16px]">group</span>
-            <span>PROXIMITY CORRIDORS • PRIVACY-SAFE SYNTHETIC MOBILIZATION</span>
+            <span className="material-symbols-outlined text-[16px]">
+              group
+            </span>
+            <span>DONOR NETWORK • CONSENT-AWARE OUTREACH PLANNING</span>
           </div>
+
           <h1 className="text-3xl font-display font-extrabold text-ink-main tracking-tight">
             Donor Network Outreach Intelligence
           </h1>
+
           <p className="text-sm text-ink-muted leading-relaxed">
-            Autonomous mobilization pipeline calibrating proximity corridors, historical response velocity, and ethical NBTC safe-harbor synthetic models to reinforce regional supply buffers.
+            Review available, consented donors and organize a proximity-based
+            outreach shortlist. Distance bands are derived from stored donor
+            records; they are not live GPS tracking.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link to="/campaign-studio">
             <Button variant="primary" icon="campaign" iconPosition="right">
-              Broadcast to Campaign Studio
+              Open Campaign Studio
             </Button>
           </Link>
+
+          <Button
+            variant="secondary"
+            icon="refresh"
+            onClick={() => void fetchDonors()}
+            disabled={loading}
+          >
+            Refresh Donors
+          </Button>
         </div>
       </section>
 
-      {/* 2. Executive Network Posture Tiles */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Donor Posture Summary">
+      {/* API feedback */}
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          <div className="font-bold">Unable to load donor records</div>
+          <p className="mt-1 break-words">{error}</p>
+        </div>
+      )}
+
+      {notice && (
+        <div
+          role="status"
+          className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
+        >
+          {notice}
+        </div>
+      )}
+
+      {/* Metrics from backend data */}
+      <section
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        aria-label="Donor network summary"
+      >
         <MetricTile
-          label="Active Proximity Pool"
-          value="84"
+          label="Available & Consented"
+          value={loading ? '—' : String(eligibleDonors.length)}
           unit="Donors"
-          subtext="Pre-screened within 8km of Bank A"
+          subtext="Both availability and consent are required"
+          icon="verified_user"
+          trend={{
+            value: 'Based on backend records',
+            isPositive: !loading && !error,
+            isWarning: Boolean(error),
+          }}
+          progressPercent={0}
+        />
+
+        <MetricTile
+          label="Wave 1 Proximity"
+          value={loading ? '—' : String(waveCounts[1])}
+          unit="Donors"
+          subtext="Within 3 km and eligible"
           icon="near_me"
-          trend={{ value: "O− Negative Verified", isPositive: true }}
-          progressPercent={78}
+          isCritical={waveCounts[1] > 0}
+          trend={{
+            value: 'Distance-band shortlist',
+            isWarning: waveCounts[1] > 0,
+          }}
+          progressPercent={0}
         />
+
         <MetricTile
-          label="High Priority Wave 1"
-          value="20"
-          unit="Primed"
-          subtext="<3km transit radius to Metro Hub"
-          icon="send_time_extension"
-          isCritical={true}
-          trend={{ value: "Ready for Dispatch", isCritical: true }}
-          progressPercent={100}
+          label="Eligible Within 8 km"
+          value={loading ? '—' : String(withinEightKm.length)}
+          unit="Donors"
+          subtext="Stored distance ≤8 km"
+          icon="groups"
+          trend={{
+            value: 'Not a live location count',
+            isPositive: !loading && !error,
+          }}
+          progressPercent={0}
         />
+
         <MetricTile
-          label="Historical Response Index"
-          value="91.4%"
-          unit="Rate"
-          subtext="South Delhi historical conversion"
-          icon="insights"
-          trend={{ value: "High Affirmative Profile", isPositive: true }}
-          progressPercent={91}
-        />
-        <MetricTile
-          label="Privacy Governance"
-          value="Zero"
-          unit="PII Leak"
-          subtext="NBTC cryptographic masking"
+          label="Consent Governance"
+          value={loading ? '—' : String(eligibleDonors.length)}
+          unit="Eligible Records"
+          subtext="Available and consented donors only"
           icon="shield"
-          trend={{ value: "Synthetic Safe Harbor", isPositive: true }}
-          progressPercent={100}
+          trend={{
+            value: 'Consent flag checked',
+            isPositive: !loading && !error,
+          }}
+          progressPercent={0}
         />
       </section>
 
-      {/* 3. Spatial Corridors & Wave Mobilization */}
+      {/* Proximity bands and review queue */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-        {/* Left (7 cols): Dynamic Corridor Telemetry SVG Map */}
         <div className="lg:col-span-7">
-          <GlassPanel className="p-6 h-full flex flex-col justify-between space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <GlassPanel className="p-6 h-full flex flex-col space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 gap-2">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-[20px]">hub</span>
+                <span className="material-symbols-outlined text-primary text-[20px]">
+                  hub
+                </span>
                 <h2 className="font-display font-bold text-base text-ink-main">
-                  Dynamic Corridor Telemetry
+                  Proximity Corridor Overview
                 </h2>
               </div>
-              <span className="text-xs font-mono text-ink-secondary flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-primary animate-beacon" aria-hidden="true" />
-                <span>RT-GIS Sync &bull; Delhi NCR</span>
+
+              <span className="text-xs font-mono text-ink-secondary">
+                Schematic
               </span>
             </div>
 
-            {/* SVG Spatial Radar Rings */}
-            <div className="w-full h-80 relative bg-slate-50/70 rounded-2xl border border-slate-200/80 p-4 flex items-center justify-center overflow-hidden">
-              <svg className="w-full h-full" viewBox="0 0 500 320" aria-label="Dynamic donor corridor proximity map">
-                {/* Concentric Proximity Rings around Hub */}
-                <circle cx="250" cy="160" r="140" fill="none" stroke="#E2E8F0" strokeWidth="1.5" strokeDasharray="3 3" />
-                <circle cx="250" cy="160" r="95" fill="none" stroke="#CBD5E1" strokeWidth="1.5" strokeDasharray="4 3" />
-                <circle cx="250" cy="160" r="50" fill="none" stroke="#FDA4AF" strokeWidth="2" strokeDasharray="5 3" />
+            {/* Illustrative map: not live geographic coordinates */}
+            <div className="w-full min-h-72 relative bg-slate-50/70 rounded-2xl border border-slate-200/80 p-4 flex items-center justify-center overflow-hidden">
+              <svg
+                className="w-full h-full min-h-64"
+                viewBox="0 0 500 320"
+                role="img"
+                aria-label="Illustration of three proximity bands around a hub. This is not a live map."
+              >
+                <circle
+                  cx="250"
+                  cy="155"
+                  r="135"
+                  fill="none"
+                  stroke="#CBD5E1"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 4"
+                />
+                <circle
+                  cx="250"
+                  cy="155"
+                  r="90"
+                  fill="none"
+                  stroke="#94A3B8"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 4"
+                />
+                <circle
+                  cx="250"
+                  cy="155"
+                  r="45"
+                  fill="none"
+                  stroke="#FDA4AF"
+                  strokeWidth="2"
+                  strokeDasharray="5 3"
+                />
 
-                {/* Central Crisis Epicenter (Bank A) */}
-                <circle cx="250" cy="160" r="22" fill="#DC2626" fillOpacity="0.12" className="risk-pulse-critical" />
-                <circle cx="250" cy="160" r="10" fill="#93000B" stroke="#FFFFFF" strokeWidth="2.5" />
-                <text x="250" y="195" textAnchor="middle" fill="#0F172A" fontSize="11" fontWeight="800" fontFamily="Plus Jakarta Sans">
-                  METRO TRAUMA HUB (BANK A)
+                <circle
+                  cx="250"
+                  cy="155"
+                  r="23"
+                  fill="#DC2626"
+                  fillOpacity="0.12"
+                />
+                <circle
+                  cx="250"
+                  cy="155"
+                  r="10"
+                  fill="#93000B"
+                  stroke="#FFFFFF"
+                  strokeWidth="2.5"
+                />
+
+                <text
+                  x="250"
+                  y="193"
+                  textAnchor="middle"
+                  fill="#0F172A"
+                  fontSize="11"
+                  fontWeight="800"
+                >
+                  REFERENCE HUB
                 </text>
-                <text x="250" y="210" textAnchor="middle" fill="#93000B" fontSize="9.5" fontWeight="700" fontFamily="JetBrains Mono">
-                  CRISIS CENTER: −18u GAP
+                <text
+                  x="250"
+                  y="208"
+                  textAnchor="middle"
+                  fill="#64748B"
+                  fontSize="9"
+                >
+                  Schematic only
                 </text>
 
-                {/* Distance Ring Labels */}
-                <text x="305" y="155" fill="#DC2626" fontSize="9.5" fontWeight="700" fontFamily="JetBrains Mono">3km (Wave 1)</text>
-                <text x="350" y="155" fill="#475569" fontSize="9.5" fontWeight="600" fontFamily="JetBrains Mono">5km (Wave 2)</text>
-                <text x="395" y="155" fill="#64748B" fontSize="9.5" fontWeight="500" fontFamily="JetBrains Mono">8km (Wave 3)</text>
+                <text x="292" y="145" fill="#DC2626" fontSize="10" fontWeight="700">
+                  ≤3 km
+                </text>
+                <text x="334" y="145" fill="#475569" fontSize="10" fontWeight="700">
+                  ≤5 km
+                </text>
+                <text x="376" y="145" fill="#64748B" fontSize="10" fontWeight="700">
+                  ≤8 km
+                </text>
 
-                {/* Wave 1 Donor Nodes */}
-                <circle cx="220" cy="140" r="5" fill="#93000B" />
-                <circle cx="270" cy="130" r="5" fill="#93000B" />
-                <circle cx="240" cy="120" r="5" fill="#93000B" />
-                <circle cx="275" cy="175" r="5" fill="#93000B" />
-                <circle cx="230" cy="180" r="5" fill="#93000B" />
-
-                {/* Wave 2 Donor Nodes */}
+                <circle cx="230" cy="140" r="5" fill="#93000B" />
+                <circle cx="265" cy="130" r="5" fill="#93000B" />
+                <circle cx="270" cy="175" r="5" fill="#93000B" />
                 <circle cx="180" cy="130" r="4.5" fill="#EA580C" />
-                <circle cx="320" cy="140" r="4.5" fill="#EA580C" />
-                <circle cx="290" cy="220" r="4.5" fill="#EA580C" />
-                <circle cx="190" cy="200" r="4.5" fill="#EA580C" />
-
-                {/* Wave 3 Donor Nodes */}
-                <circle cx="140" cy="110" r="4" fill="#64748B" />
-                <circle cx="360" cy="120" r="4" fill="#64748B" />
-                <circle cx="340" cy="240" r="4" fill="#64748B" />
-                <circle cx="150" cy="230" r="4" fill="#64748B" />
+                <circle cx="320" cy="135" r="4.5" fill="#EA580C" />
+                <circle cx="300" cy="215" r="4.5" fill="#EA580C" />
+                <circle cx="140" cy="105" r="4" fill="#64748B" />
+                <circle cx="360" cy="110" r="4" fill="#64748B" />
+                <circle cx="350" cy="235" r="4" fill="#64748B" />
               </svg>
             </div>
 
-            <div className="flex items-center justify-between text-xs font-mono text-ink-secondary pt-2">
-              <span>Wave 1: &lt;3km radius (11–18 min transit)</span>
-              <strong className="text-primary">20 High-Probability Donors</strong>
+            <p className="text-xs text-ink-secondary leading-relaxed">
+              The circles illustrate distance bands only. The backend supplies
+              distances, not donor coordinates or live route ETAs.
+            </p>
+
+            <div className="grid grid-cols-3 gap-2 pt-2">
+              <div className="rounded-lg bg-red-50 border border-red-100 p-3">
+                <div className="text-[10px] font-mono text-red-800 font-bold">
+                  WAVE 1
+                </div>
+                <div className="text-xl font-display font-bold text-ink-main">
+                  {loading ? '—' : waveCounts[1]}
+                </div>
+                <div className="text-[10px] text-ink-secondary">≤3 km</div>
+              </div>
+
+              <div className="rounded-lg bg-orange-50 border border-orange-100 p-3">
+                <div className="text-[10px] font-mono text-orange-800 font-bold">
+                  WAVE 2
+                </div>
+                <div className="text-xl font-display font-bold text-ink-main">
+                  {loading ? '—' : waveCounts[2]}
+                </div>
+                <div className="text-[10px] text-ink-secondary">≤5 km</div>
+              </div>
+
+              <div className="rounded-lg bg-slate-100 border border-slate-200 p-3">
+                <div className="text-[10px] font-mono text-slate-700 font-bold">
+                  WAVE 3
+                </div>
+                <div className="text-xl font-display font-bold text-ink-main">
+                  {loading ? '—' : waveCounts[3]}
+                </div>
+                <div className="text-[10px] text-ink-secondary">≤8 km</div>
+              </div>
             </div>
           </GlassPanel>
         </div>
 
-        {/* Right (5 cols): Triage Waves Breakdown & Dispatch */}
-        <div className="lg:col-span-5 space-y-4">
-          <GlassPanel className="p-6 space-y-4">
+        <div className="lg:col-span-5">
+          <GlassPanel className="p-6 space-y-4 h-full">
             <h3 className="font-display font-bold text-base text-ink-main">
-              Mobilization Queue by Proximity Tiers
+              Review Donors by Proximity
             </h3>
 
-            {MOCK_DONOR_WAVES.map(w => (
+            {(
+              [
+                {
+                  wave: 1 as const,
+                  title: 'Wave 01 · Nearby',
+                  radius: '≤3 km',
+                  count: waveCounts[1],
+                  style: 'bg-red-50/50 border-red-200',
+                },
+                {
+                  wave: 2 as const,
+                  title: 'Wave 02 · Regional',
+                  radius: '≤5 km',
+                  count: waveCounts[2],
+                  style: 'bg-orange-50/50 border-orange-200',
+                },
+                {
+                  wave: 3 as const,
+                  title: 'Wave 03 · Extended',
+                  radius: '≤8 km',
+                  count: waveCounts[3],
+                  style: 'bg-slate-50 border-slate-200',
+                },
+              ]
+            ).map((item) => (
               <div
-                key={w.wave}
-                className={`p-4 rounded-xl border transition-all ${
-                  w.wave === 1
-                    ? 'bg-red-50/50 border-primary/30'
-                    : 'bg-slate-50 border-slate-200'
-                }`}
+                key={item.wave}
+                className={`p-4 rounded-xl border ${item.style}`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded ${
-                    w.wave === 1 ? 'bg-primary text-white' : 'bg-slate-200 text-slate-700'
-                  }`}>
-                    Wave 0{w.wave} Corridor ({w.radiusKm} km)
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-[10px] font-mono font-bold uppercase">
+                    {item.title}
                   </span>
-                  <span className="text-xs font-mono text-ink-secondary">ETA: ~{w.avgResponseMins}m</span>
-                </div>
-
-                <div className="flex justify-between items-baseline mt-1">
-                  <span className="text-xl font-display font-bold text-ink-main tabular-nums">
-                    {w.donorCount} Donors Ready
-                  </span>
-                  <span className="text-xs font-mono text-emerald-700 font-bold">
-                    +{w.estimatedUnits} Units Yield
+                  <span className="text-xs font-mono text-ink-secondary">
+                    {item.radius}
                   </span>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between">
-                  <button
-                    onClick={() => setSelectedWave(w.wave)}
-                    className="text-xs font-mono text-ink-secondary hover:text-ink-main underline"
-                  >
-                    Filter Table Below
-                  </button>
+                <div className="flex justify-between items-baseline gap-2 mt-1">
+                  <span className="text-xl font-display font-bold text-ink-main">
+                    {loading ? '—' : item.count} eligible
+                  </span>
+                  <span className="text-xs font-mono text-ink-secondary">
+                    No yield estimate
+                  </span>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <p className="text-[11px] text-ink-secondary">
+                    Filter the donor list
+                  </p>
                   <Button
-                    variant={w.wave === 1 ? 'primary' : 'secondary'}
+                    variant={item.wave === 1 ? 'primary' : 'secondary'}
                     size="sm"
-                    icon="send"
-                    onClick={() => handleMobilize(w.wave)}
+                    onClick={() => handleReviewWave(item.wave)}
                   >
-                    Mobilize Wave {w.wave}
+                    Review Wave
                   </Button>
                 </div>
               </div>
             ))}
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                <span className="material-symbols-outlined text-[18px]">
+                  info
+                </span>
+                Outreach not dispatched
+              </div>
+              <p className="text-xs text-amber-900/90 mt-2 leading-relaxed">
+                This backend connection supports donor listing. A real
+                outreach action needs a dedicated backend endpoint and an
+                authorized messaging workflow.
+              </p>
+            </div>
           </GlassPanel>
         </div>
       </div>
 
-      {/* 4. Privacy-Safe Synthetic Donor Stream */}
+      {/* Backend donor list */}
       <GlassPanel className="p-0 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
           <div>
             <h2 className="font-display font-bold text-base text-ink-main">
-              Privacy-Safe Synthetic Donor Stream ({filteredDonors.length})
+              Donor Network ({filteredDonors.length})
             </h2>
-            <p className="text-xs text-ink-secondary">
-              NBTC safe-harbor compliance enforced. Cryptographic tokens mask all personal data.
+            <p className="text-xs text-ink-secondary mt-1">
+              Donor details returned by the API. Contact information remains
+              masked where provided.
             </p>
           </div>
+
           <SegmentedControl
             options={waveFilterOptions}
             value={selectedWave}
-            onChange={setSelectedWave}
+            onChange={(value) => setSelectedWave(value as WaveFilter)}
             size="sm"
-            label="Donor wave filter"
+            label="Donor proximity filter"
           />
         </div>
 
@@ -256,33 +573,105 @@ export const DonorNetworkPage: React.FC = () => {
           <table className="w-full text-left text-xs font-mono border-collapse">
             <thead>
               <tr className="bg-slate-50/80 text-ink-secondary border-b border-slate-200/80">
-                <th className="py-3.5 px-6 font-bold uppercase tracking-wider">Token ID</th>
-                <th className="py-3.5 px-6 font-bold uppercase tracking-wider">Cohort Cluster</th>
-                <th className="py-3.5 px-4 font-bold uppercase tracking-wider text-center">Serotype</th>
-                <th className="py-3.5 px-4 font-bold uppercase tracking-wider text-center">Distance</th>
-                <th className="py-3.5 px-4 font-bold uppercase tracking-wider text-center">Travel ETA</th>
-                <th className="py-3.5 px-4 font-bold uppercase tracking-wider text-center">Response Prob.</th>
-                <th className="py-3.5 px-4 font-bold uppercase tracking-wider text-center">Last Donation</th>
-                <th className="py-3.5 px-6 font-bold uppercase tracking-wider text-center">Status</th>
+                <th className="py-3.5 px-6 font-bold uppercase tracking-wider">
+                  Donor ID
+                </th>
+                <th className="py-3.5 px-6 font-bold uppercase tracking-wider">
+                  Location Zone
+                </th>
+                <th className="py-3.5 px-4 font-bold uppercase tracking-wider text-center">
+                  Blood Group
+                </th>
+                <th className="py-3.5 px-4 font-bold uppercase tracking-wider text-center">
+                  Distance
+                </th>
+                <th className="py-3.5 px-6 font-bold uppercase tracking-wider">
+                  Last Donation
+                </th>
+                <th className="py-3.5 px-4 font-bold uppercase tracking-wider text-center">
+                  Availability
+                </th>
+                <th className="py-3.5 px-4 font-bold uppercase tracking-wider text-center">
+                  Consent
+                </th>
+                <th className="py-3.5 px-6 font-bold uppercase tracking-wider">
+                  Masked Contact
+                </th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-slate-100 font-sans">
-              {filteredDonors.map(d => (
-                <tr key={d.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-3.5 px-6 font-mono font-bold text-ink-main">{d.id}</td>
-                  <td className="py-3.5 px-6">
-                    <span className="font-semibold text-ink-main block text-[13px]">{d.cluster}</span>
-                    <span className="text-[11px] text-ink-secondary font-mono">Wave {d.wave} &bull; {d.contactMasked}</span>
+              {!loading && filteredDonors.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="px-6 py-12 text-center text-sm text-ink-secondary"
+                  >
+                    {error
+                      ? 'Donors could not be loaded. Resolve the connection error and refresh.'
+                      : 'No donors match this filter.'}
                   </td>
-                  <td className="py-3.5 px-4 text-center font-mono font-bold text-sm text-primary">{d.bloodGroup}</td>
-                  <td className="py-3.5 px-4 text-center font-mono tabular-nums">{d.distanceKm} km</td>
-                  <td className="py-3.5 px-4 text-center font-mono font-bold text-ink-main tabular-nums">{d.travelMinutes} mins</td>
-                  <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-700 tabular-nums">{d.responseProbability}%</td>
-                  <td className="py-3.5 px-4 text-center font-mono text-ink-secondary tabular-nums">{d.lastDonationWeeks}w ago</td>
-                  <td className="py-3.5 px-6 text-center">
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-mono font-bold text-[10px] border border-emerald-200">
-                      {d.status}
+                </tr>
+              )}
+
+              {filteredDonors.map((donor) => (
+                <tr
+                  key={donor.id}
+                  className="hover:bg-slate-50/70 transition-colors"
+                >
+                  <td className="py-3.5 px-6">
+                    <span className="font-mono font-bold text-ink-main block">
+                      {donor.id}
                     </span>
+                    <span className="text-[11px] text-ink-secondary">
+                      {donor.pseudonym}
+                    </span>
+                  </td>
+
+                  <td className="py-3.5 px-6 text-ink-main">
+                    {donor.locationZone}
+                  </td>
+
+                  <td className="py-3.5 px-4 text-center font-mono font-bold text-sm text-primary">
+                    {donor.bloodGroup}
+                  </td>
+
+                  <td className="py-3.5 px-4 text-center font-mono tabular-nums">
+                    {donor.distanceKm === null
+                      ? 'Not recorded'
+                      : `${donor.distanceKm.toFixed(1)} km`}
+                  </td>
+
+                  <td className="py-3.5 px-6 text-ink-secondary">
+                    {formatLastDonation(donor.lastDonation)}
+                  </td>
+
+                  <td className="py-3.5 px-4 text-center">
+                    <span
+                      className={`px-2 py-1 rounded-full text-[10px] font-mono font-bold border ${
+                        donor.available
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}
+                    >
+                      {donor.available ? 'Available' : 'Unavailable'}
+                    </span>
+                  </td>
+
+                  <td className="py-3.5 px-4 text-center">
+                    <span
+                      className={`px-2 py-1 rounded-full text-[10px] font-mono font-bold border ${
+                        donor.consented
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : 'bg-amber-50 text-amber-800 border-amber-200'
+                      }`}
+                    >
+                      {donor.consented ? 'Consented' : 'Not consented'}
+                    </span>
+                  </td>
+
+                  <td className="py-3.5 px-6 text-ink-secondary">
+                    {donor.contactMasked}
                   </td>
                 </tr>
               ))}

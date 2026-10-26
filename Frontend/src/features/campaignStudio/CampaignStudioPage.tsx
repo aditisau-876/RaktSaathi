@@ -12,6 +12,30 @@ export const CampaignStudioPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(5);
   const [isBroadcastDispatched, setIsBroadcastDispatched] = useState<boolean>(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState<boolean>(false);
+  const [isDispatching, setIsDispatching] = useState<boolean>(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [campaignId, setCampaignId] = useState<string | number | null>(null);
+  const [dispatchResult, setDispatchResult] = useState<Record<string, unknown> | null>(null);
+  const [channels, setChannels] = useState<string[]>(['whatsapp', 'sms', 'donor_app', 'dooh']);
+  const channelLabels: Record<string, string> = { whatsapp: 'WhatsApp', sms: 'SMS', donor_app: 'Donor App', dooh: 'Digital Billboards' };
+
+  // FastAPI base URL. Set VITE_API_BASE_URL in frontend/.env.local.
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+
+  const requestApi = async (path: string, options: RequestInit = {}) => {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(options.headers || {}) },
+    });
+    const raw = await response.text();
+    let payload: any = null;
+    try { payload = raw ? JSON.parse(raw) : null; } catch { payload = raw; }
+    if (!response.ok) {
+      const detail = payload && typeof payload === 'object' ? payload.detail || payload.message : payload;
+      throw new Error(typeof detail === 'string' ? detail : `Backend request failed (HTTP ${response.status}).`);
+    }
+    return payload;
+  };
 
   // Dynamic campaign params
   const [targetRadius, setTargetRadius] = useState<number>(8);
@@ -36,25 +60,67 @@ export const CampaignStudioPage: React.FC = () => {
     { step: 5, label: 'Broadcast Armed', detail: 'Ready for Instant Multi-Channel Dispatch', delay: 150 },
   ];
 
-  const triggerRegeneration = () => {
+  const triggerRegeneration = async () => {
     setIsGenerating(true);
     setCurrentStep(1);
-
-    let cumulative = 0;
-    generationSteps.forEach((s, idx) => {
-      cumulative += s.delay;
-      setTimeout(() => {
-        setCurrentStep(idx + 1);
-        if (idx === generationSteps.length - 1) {
-          setIsGenerating(false);
-        }
-      }, cumulative);
-    });
+    setApiError(null);
+    try {
+      // Expected backend contract: POST /campaigns/generate returns { id | campaign_id, ... }.
+      const result = await requestApi('/campaigns/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          incident_id: 'INC-2026-0881',
+          blood_group: activeIncident.bloodGroup,
+          target_radius_km: targetRadius,
+          target_donors: targetDonors,
+          headline,
+          body_copy: bodyCopy,
+          format: activeFormat,
+          channels,
+        }),
+      });
+      const id = result?.campaign_id ?? result?.id ?? result?.campaign?.id ?? null;
+      if (id !== null) setCampaignId(id);
+      setCurrentStep(5);
+      setIsGenerating(false);
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Could not generate campaign.');
+      setCurrentStep(1);
+      setIsGenerating(false);
+    }
   };
 
-  const handleDeployBroadcast = () => {
-    setIsBroadcastDispatched(true);
-    setShowConfirmationModal(true);
+  const handleDeployBroadcast = async () => {
+    if (!campaignId) {
+      setApiError('Generate the campaign first. The backend must return a campaign ID before dispatch.');
+      return;
+    }
+    if (channels.length === 0) {
+      setApiError('Select at least one syndication channel.');
+      return;
+    }
+    setIsDispatching(true);
+    setApiError(null);
+    try {
+      // Expected backend contract: POST /campaigns/{id}/dispatch.
+      const result = await requestApi(`/campaigns/${encodeURIComponent(String(campaignId))}/dispatch`, {
+        method: 'POST',
+        body: JSON.stringify({ channels, target_radius_km: targetRadius, target_donors: targetDonors }),
+      });
+      setDispatchResult(result && typeof result === 'object' ? result : {});
+      setIsBroadcastDispatched(true);
+      setShowConfirmationModal(true);
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Campaign dispatch failed.');
+    } finally {
+      setIsDispatching(false);
+    }
+  };
+
+  const toggleChannel = (channel: string, checked: boolean) => {
+    setChannels(previous => checked
+      ? (previous.includes(channel) ? previous : [...previous, channel])
+      : previous.filter(item => item !== channel));
   };
 
   return (
@@ -93,7 +159,7 @@ export const CampaignStudioPage: React.FC = () => {
             className="text-xs font-mono font-bold text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-[15px]">autorenew</span>
-            <span>Re-compile Pipeline</span>
+            <span>{campaignId ? 'Regenerate Campaign' : 'Generate Campaign'}</span>
           </button>
         </div>
 
@@ -126,6 +192,19 @@ export const CampaignStudioPage: React.FC = () => {
           })}
         </div>
       </div>
+
+      {apiError && (
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <strong className="block">Backend request failed</strong>
+          <span>{apiError}</span>
+          <p className="mt-1 text-xs">Check that the FastAPI server is running and that its campaign routes match the endpoints configured in this page.</p>
+        </div>
+      )}
+      {campaignId && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-900">
+          Campaign saved by backend · ID: <strong>{String(campaignId)}</strong>
+        </div>
+      )}
 
       {/* 3. 2-Column Studio Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -235,19 +314,19 @@ export const CampaignStudioPage: React.FC = () => {
               </span>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <label className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200/80 cursor-pointer">
-                  <input type="checkbox" defaultChecked className="accent-primary" />
+                  <input type="checkbox" checked={channels.includes('whatsapp')} onChange={e => toggleChannel('whatsapp', e.target.checked)} className="accent-primary" />
                   <span className="text-ink-main">WhatsApp Push</span>
                 </label>
                 <label className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200/80 cursor-pointer">
-                  <input type="checkbox" defaultChecked className="accent-primary" />
+                  <input type="checkbox" checked={channels.includes('sms')} onChange={e => toggleChannel('sms', e.target.checked)} className="accent-primary" />
                   <span className="text-ink-main">SMS Gateway</span>
                 </label>
                 <label className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200/80 cursor-pointer">
-                  <input type="checkbox" defaultChecked className="accent-primary" />
+                  <input type="checkbox" checked={channels.includes('donor_app')} onChange={e => toggleChannel('donor_app', e.target.checked)} className="accent-primary" />
                   <span className="text-ink-main">Donor App Alert</span>
                 </label>
                 <label className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200/80 cursor-pointer">
-                  <input type="checkbox" defaultChecked className="accent-primary" />
+                  <input type="checkbox" checked={channels.includes('dooh')} onChange={e => toggleChannel('dooh', e.target.checked)} className="accent-primary" />
                   <span className="text-ink-main">Digital Billboards</span>
                 </label>
               </div>
@@ -261,8 +340,9 @@ export const CampaignStudioPage: React.FC = () => {
                 className="w-full"
                 icon={isBroadcastDispatched ? 'check_circle' : 'broadcast_on_personal'}
                 onClick={handleDeployBroadcast}
+                disabled={isDispatching || !campaignId || isBroadcastDispatched}
               >
-                {isBroadcastDispatched ? 'Broadcast Deployed Live' : 'Deploy Multi-Channel Broadcast'}
+                {isDispatching ? 'Dispatching…' : isBroadcastDispatched ? 'Broadcast Dispatched' : campaignId ? 'Deploy Multi-Channel Broadcast' : 'Generate Campaign First'}
               </Button>
             </div>
           </GlassPanel>
@@ -351,7 +431,7 @@ export const CampaignStudioPage: React.FC = () => {
                     <span className="text-[10px] font-mono text-ink-secondary">Donation Desk:</span>
                     <span className="text-xs font-mono font-bold text-ink-main">Reception Gate #04</span>
                   </div>
-                  <button className="px-3.5 py-1.5 rounded-lg bg-primary text-white font-display font-bold text-xs shadow-subtle flex items-center gap-1">
+                  <button type="button" onClick={() => void handleDeployBroadcast()} disabled={isDispatching || !campaignId || isBroadcastDispatched} className="px-3.5 py-1.5 rounded-lg bg-primary text-white font-display font-bold text-xs shadow-subtle flex items-center gap-1 disabled:opacity-50">
                     <span>Respond</span>
                     <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                   </button>
@@ -375,25 +455,25 @@ export const CampaignStudioPage: React.FC = () => {
             </div>
             <div className="text-center space-y-1">
               <h3 className="font-display font-bold text-xl text-ink-main">
-                Campaign Syndicated Successfully
+                Campaign Dispatch Confirmed
               </h3>
               <p className="text-xs text-ink-secondary">
-                Automated multi-channel push dispatched to {targetDonors} eligible O− donors within {targetRadius}km.
+                Backend accepted the dispatch request for {targetDonors} targeted donors within {targetRadius}km. Actual delivery depends on the configured channel providers.
               </p>
             </div>
 
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono space-y-2">
               <div className="flex justify-between">
                 <span className="text-ink-secondary">Channels Armed:</span>
-                <strong className="text-ink-main">WhatsApp, SMS, DOOH</strong>
+                <strong className="text-ink-main">{channels.map(c => channelLabels[c] || c).join(', ')}</strong>
               </div>
               <div className="flex justify-between">
                 <span className="text-ink-secondary">Edge Render Latency:</span>
-                <strong className="text-emerald-700">184 ms</strong>
+                <strong className="text-emerald-700">{String(dispatchResult?.latency_ms ?? 'Backend reported')}</strong>
               </div>
               <div className="flex justify-between">
                 <span className="text-ink-secondary">Broadcast ID:</span>
-                <strong className="text-ink-main">CMP-2026-881</strong>
+                <strong className="text-ink-main">{String(dispatchResult?.broadcast_id ?? dispatchResult?.id ?? campaignId)}</strong>
               </div>
             </div>
 

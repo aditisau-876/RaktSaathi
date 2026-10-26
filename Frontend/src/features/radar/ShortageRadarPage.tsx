@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { GlassPanel } from '@/components/common/GlassPanel';
 import { Button } from '@/components/common/Button';
@@ -6,55 +7,325 @@ import { Stepper } from '@/components/common/Stepper';
 import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { BloodGroup } from '@/core/types/inventory';
 import { useIncident } from '@/context/IncidentContext';
+import { apiGet } from '@/services/api';
 import { RadarNetwork3D } from './RadarNetwork3D';
 
-const SEROTYPES: BloodGroup[] = ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'];
+const SEROTYPES: BloodGroup[] = [
+  'O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+',
+];
+
+type ApiRisk = 'RED' | 'AMBER' | 'GREEN';
+
+interface RadarApiItem {
+  bank_id: string;
+  bank_name: string;
+  location: string;
+  blood_group: BloodGroup;
+  available_units: number;
+  safety_floor: number;
+  expected_demand_24h: number;
+  expected_incoming_units: number;
+  projected_gap: number;
+  risk: ApiRisk;
+  risk_window_hours: number;
+  method: string;
+  is_synthetic: boolean;
+}
+
+interface RadarApiResponse {
+  data_mode: string;
+  method: string;
+  items: RadarApiItem[];
+}
+
+interface RadarFacility {
+  facilityId: string;
+  facilityName: string;
+  shortName: string;
+  location: string;
+  activeAlertCount: number;
+  stocks: Record<
+    BloodGroup,
+    {
+      units: number;
+      safetyFloor: number;
+      expectedDemand24h: number;
+      expectedIncomingUnits: number;
+      projectedGap: number;
+      risk: ApiRisk;
+      riskWindowHours: number;
+      status: 'critical' | 'warning' | 'normal';
+      isSynthetic: boolean;
+    }
+  >;
+}
+
+type ViewMode = 'both' | '3d' | 'matrix';
+
+const emptyStock = {
+  units: 0,
+  safetyFloor: 0,
+  expectedDemand24h: 0,
+  expectedIncomingUnits: 0,
+  projectedGap: 0,
+  risk: 'GREEN' as ApiRisk,
+  riskWindowHours: 0,
+  status: 'normal' as const,
+  isSynthetic: true,
+};
+
+const riskToStatus = (
+  risk: ApiRisk,
+): 'critical' | 'warning' | 'normal' => {
+  if (risk === 'RED') return 'critical';
+  if (risk === 'AMBER') return 'warning';
+  return 'normal';
+};
+
+const formatRisk = (risk: ApiRisk) => {
+  if (risk === 'RED') return 'Critical';
+  if (risk === 'AMBER') return 'Warning';
+  return 'Stable';
+};
+
+const getRiskClasses = (risk: ApiRisk) => {
+  if (risk === 'RED') {
+    return 'bg-red-50 text-primary border-red-200';
+  }
+
+  if (risk === 'AMBER') {
+    return 'bg-amber-50 text-amber-800 border-amber-200';
+  }
+
+  return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+};
+
+const getRiskDot = (risk: ApiRisk) => {
+  if (risk === 'RED') return 'bg-primary animate-beacon';
+  if (risk === 'AMBER') return 'bg-amber-500';
+  return 'bg-emerald-600';
+};
+
+const mapApiItemsToFacilities = (
+  items: RadarApiItem[],
+): RadarFacility[] => {
+  const facilityMap = new Map<string, RadarFacility>();
+
+  for (const item of items) {
+    let facility = facilityMap.get(item.bank_id);
+
+    if (!facility) {
+      facility = {
+        facilityId: item.bank_id,
+        facilityName: item.bank_name,
+        shortName: item.bank_name,
+        location: item.location,
+        activeAlertCount: 0,
+        stocks: {
+          'O-': { ...emptyStock },
+          'O+': { ...emptyStock },
+          'A-': { ...emptyStock },
+          'A+': { ...emptyStock },
+          'B-': { ...emptyStock },
+          'B+': { ...emptyStock },
+          'AB-': { ...emptyStock },
+          'AB+': { ...emptyStock },
+        },
+      };
+
+      facilityMap.set(item.bank_id, facility);
+    }
+
+    const risk = item.risk;
+
+    facility.stocks[item.blood_group] = {
+      units: item.available_units,
+      safetyFloor: item.safety_floor,
+      expectedDemand24h: item.expected_demand_24h,
+      expectedIncomingUnits: item.expected_incoming_units,
+      projectedGap: item.projected_gap,
+      risk,
+      riskWindowHours: item.risk_window_hours,
+      status: riskToStatus(risk),
+      isSynthetic: item.is_synthetic,
+    };
+  }
+
+  for (const facility of facilityMap.values()) {
+    facility.activeAlertCount = SEROTYPES.filter((group) => {
+      const risk = facility.stocks[group].risk;
+      return risk === 'RED' || risk === 'AMBER';
+    }).length;
+  }
+
+  return Array.from(facilityMap.values());
+};
 
 export const ShortageRadarPage: React.FC = () => {
-  const { facilities, setActiveIncident } = useIncident();
-  const [selectedSerotype, setSelectedSerotype] = useState<BloodGroup>('O-');
-  const [selectedFacilityId, setSelectedFacilityId] = useState<string>('BB-DEL-A');
-  const [viewMode, setViewMode] = useState<'both' | '3d' | 'matrix'>('both');
+  const { setActiveIncident } = useIncident();
 
-  const selectedFacility = facilities.find(f => f.facilityId === selectedFacilityId) || facilities[0];
-  const selectedStock = selectedFacility.stocks[selectedSerotype];
+  const [radarItems, setRadarItems] = useState<RadarApiItem[]>([]);
+  const [dataMode, setDataMode] = useState('SYNTHETIC_DEMO');
+  const [method, setMethod] = useState('DEMO_RULE_BASED');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleCellClick = (facilityId: string, bg: BloodGroup) => {
+  const [selectedSerotype, setSelectedSerotype] =
+    useState<BloodGroup>('O-');
+  const [selectedFacilityId, setSelectedFacilityId] =
+    useState('BB-DEL-A');
+  const [viewMode, setViewMode] = useState<ViewMode>('both');
+
+  const loadRadar = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await apiGet<RadarApiResponse>('/radar');
+
+      if (!response || !Array.isArray(response.items)) {
+        throw new Error(
+          'The radar API returned an unexpected response format.',
+        );
+      }
+
+      setRadarItems(response.items);
+      setDataMode(response.data_mode || 'UNKNOWN');
+      setMethod(response.method || 'UNKNOWN');
+
+      setSelectedFacilityId((currentId) => {
+        const exists = response.items.some(
+          (item) => item.bank_id === currentId,
+        );
+
+        return exists
+          ? currentId
+          : response.items[0]?.bank_id || '';
+      });
+
+      setSelectedSerotype((currentGroup) => {
+        const exists = response.items.some(
+          (item) =>
+            item.blood_group === currentGroup &&
+            response.items.some(
+              (candidate) => candidate.bank_id === selectedFacilityId,
+            ),
+        );
+
+        return exists ? currentGroup : 'O-';
+      });
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to load radar inventory.',
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedFacilityId]);
+
+  useEffect(() => {
+    void loadRadar();
+  }, [loadRadar]);
+
+  const facilities = useMemo(
+    () => mapApiItemsToFacilities(radarItems),
+    [radarItems],
+  );
+
+  const selectedFacility =
+    facilities.find(
+      (facility) => facility.facilityId === selectedFacilityId,
+    ) || facilities[0];
+
+  const selectedStock = selectedFacility
+    ? selectedFacility.stocks[selectedSerotype]
+    : undefined;
+
+  const totals = useMemo(() => {
+    const totalUnits = radarItems.reduce(
+      (sum, item) => sum + item.available_units,
+      0,
+    );
+
+    const redCount = radarItems.filter(
+      (item) => item.risk === 'RED',
+    ).length;
+
+    const amberCount = radarItems.filter(
+      (item) => item.risk === 'AMBER',
+    ).length;
+
+    const greenCount = radarItems.filter(
+      (item) => item.risk === 'GREEN',
+    ).length;
+
+    return {
+      totalUnits,
+      redCount,
+      amberCount,
+      greenCount,
+      recordCount: radarItems.length,
+      facilityCount: new Set(
+        radarItems.map((item) => item.bank_id),
+      ).size,
+    };
+  }, [radarItems]);
+
+  const handleCellClick = (
+    facilityId: string,
+    bloodGroup: BloodGroup,
+  ) => {
     setSelectedFacilityId(facilityId);
-    setSelectedSerotype(bg);
+    setSelectedSerotype(bloodGroup);
 
-    const facility = facilities.find(f => f.facilityId === facilityId);
+    const facility = facilities.find(
+      (item) => item.facilityId === facilityId,
+    );
+
     if (!facility) return;
 
-    const stock = facility.stocks[bg];
-    const gap = stock.units - stock.safetyFloor;
+    const stock = facility.stocks[bloodGroup];
 
-    if (gap < 0) {
-      setActiveIncident({
-        incidentId: `INC-${Math.floor(1000 + Math.random() * 9000)}`,
-        facilityId: facility.facilityId,
-        facilityName: facility.facilityName,
-        bloodGroup: bg,
-        currentStock: stock.units,
-        mandatedFloor: stock.safetyFloor,
-        projectedGap: gap,
-        breachHorizonIST: '02:40 IST (T+18h)',
-        hoursUntilBreach: stock.depletionHours || 18,
-        severity: stock.status === 'critical' ? 'CRITICAL' : 'WARNING',
-        modelIdentifier: 'ML-DL-TRAUMA-9042',
-        burnVelocityUnitsPerHour: 1.28,
-      });
-    }
+    // Only open a shortage incident for a backend RED/AMBER record.
+    if (stock.risk === 'GREEN') return;
+
+    setActiveIncident({
+      incidentId: `DEMO-${facilityId}-${bloodGroup.replace('-', 'NEG').replace('+', 'POS')}`,
+      facilityId: facility.facilityId,
+      facilityName: facility.facilityName,
+      bloodGroup,
+      currentStock: stock.units,
+      mandatedFloor: stock.safetyFloor,
+
+      // This is the API's projected gap. It is NOT the
+      // difference between available units and the safety floor.
+      projectedGap: stock.projectedGap,
+
+      // The API provides a risk window, not a confirmed
+      // depletion/breach time. Keep the legacy field neutral.
+      breachHorizonIST: 'Not available from current API',
+      hoursUntilBreach: 0,
+
+      severity: stock.risk === 'RED' ? 'CRITICAL' : 'WARNING',
+      modelIdentifier: method,
+      burnVelocityUnitsPerHour: 0,
+    });
   };
 
   const handleFacilitySelect = (facilityId: string) => {
     handleCellClick(facilityId, selectedSerotype);
   };
 
-  const serotypeOptions = SEROTYPES.map(bg => ({
-    value: bg,
-    label: bg,
-    alertDot: bg === 'O-' || bg === 'AB-',
+  const serotypeOptions = SEROTYPES.map((bloodGroup) => ({
+    value: bloodGroup,
+    label: bloodGroup,
+    alertDot: radarItems.some(
+      (item) =>
+        item.blood_group === bloodGroup &&
+        (item.risk === 'RED' || item.risk === 'AMBER'),
+    ),
   }));
 
   const viewModeOptions = [
@@ -63,405 +334,711 @@ export const ShortageRadarPage: React.FC = () => {
     { value: 'matrix', label: 'Inventory Matrix' },
   ];
 
+  const handleViewModeChange = (value: string) => {
+    if (value === 'both' || value === '3d' || value === 'matrix') {
+      setViewMode(value);
+    }
+  };
+
+  const isSynthetic =
+    dataMode.toUpperCase().includes('SYNTHETIC') ||
+    radarItems.some((item) => item.is_synthetic);
+
+  const safetyFloorDifference =
+    selectedStock
+      ? selectedStock.units - selectedStock.safetyFloor
+      : 0;
+
   return (
     <div className="space-y-8">
-      {/* 1. Page Header & Diagnostic Stepper */}
+      {/* 1. Page Header */}
       <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-4 border-b border-slate-200">
         <div className="space-y-1.5 max-w-3xl">
           <div className="flex items-center gap-2 text-xs font-mono text-primary font-bold tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-primary animate-beacon" aria-hidden="true" />
-            <span>STAGE 01/04: REGIONAL PREDICTIVE SURVEILLANCE</span>
+            <span
+              className="w-2 h-2 rounded-full bg-primary animate-beacon"
+              aria-hidden="true"
+            />
+            <span>STAGE 01/04: REGIONAL SHORTAGE SURVEILLANCE</span>
           </div>
+
           <h1 className="text-3xl font-display font-extrabold text-ink-main tracking-tight">
             Blood Shortage Radar
           </h1>
+
           <p className="text-sm text-ink-muted leading-relaxed">
-            Multi-facility inventory surveillance across 8 blood groups. Predictive threshold algorithms continuously monitor burn velocity to signal imminent runout events.
+            Monitor inventory levels, safety floors and backend-assessed
+            risk across the available facilities and eight blood groups.
+            Select a matrix cell to inspect its inventory details.
           </p>
         </div>
 
-        {/* Narrative Stepper */}
         <Stepper currentStep={1} />
       </section>
 
-      {/* 2. Serotype Filter Strip, Projection Controls & Operational Legend */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white border border-slate-200/90 p-3.5 rounded-xl shadow-subtle">
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs font-mono font-bold text-ink-secondary uppercase">
-            Serotype Focus:
+      {/* Data provenance banner */}
+      <div
+        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border p-4 ${
+          isSynthetic
+            ? 'border-amber-200 bg-amber-50'
+            : 'border-emerald-200 bg-emerald-50'
+        }`}
+        role="status"
+      >
+        <div className="flex items-start gap-3">
+          <span
+            className={`mt-0.5 material-symbols-outlined ${
+              isSynthetic ? 'text-amber-700' : 'text-emerald-700'
+            }`}
+            aria-hidden="true"
+          >
+            {isSynthetic ? 'science' : 'verified'}
           </span>
-          <SegmentedControl
-            options={serotypeOptions}
-            value={selectedSerotype}
-            onChange={setSelectedSerotype}
-            label="Serotype selector"
-          />
-        </div>
 
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold text-ink-secondary uppercase">
-              Mode:
-            </span>
-            <SegmentedControl
-              options={viewModeOptions}
-              value={viewMode}
-              onChange={setViewMode as any}
-              label="Radar view mode selector"
-              size="sm"
-            />
-          </div>
-
-          {/* Operational Status Legend */}
-          <div className="hidden xl:flex items-center gap-4 text-xs font-mono text-ink-secondary pl-3 border-l border-slate-200">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-primary" aria-hidden="true" />
-              <strong className="text-primary">Critical</strong> (≤8u)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-amber-500" aria-hidden="true" />
-              <strong className="text-amber-800">Warning</strong> (9–14u)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-slate-300" aria-hidden="true" />
-              <span className="text-ink-secondary">Nominal</span> (&gt;15u)
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Interactive 3D Spatial Radar Network */}
-      {(viewMode === 'both' || viewMode === '3d') && (
-        <RadarNetwork3D
-          selectedSerotype={selectedSerotype}
-          selectedFacilityId={selectedFacilityId}
-          onSelectFacility={handleFacilitySelect}
-        />
-      )}
-
-      {/* 4. The 8-Serotype Regional Blood Inventory Matrix */}
-      {(viewMode === 'both' || viewMode === 'matrix') && (
-        <GlassPanel className="p-0 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200/80 flex items-center justify-between bg-slate-50/50">
           <div>
-            <h2 className="font-display font-bold text-base text-ink-main">
-              Regional Blood Inventory Matrix
-            </h2>
+            <p
+              className={`text-sm font-bold ${
+                isSynthetic ? 'text-amber-900' : 'text-emerald-900'
+              }`}
+            >
+              {isSynthetic
+                ? 'Synthetic demo data'
+                : 'Radar data loaded'}
+            </p>
             <p className="text-xs text-ink-secondary mt-0.5">
-              Telemetry aggregated across 4 Delhi-NCR clinical depots. Click any cell to lock analytical triage.
+              Data mode: {dataMode} · Method: {method}
+              {isSynthetic
+                ? ' · These records are for demonstration, not verified live blood-bank inventory.'
+                : ''}
             </p>
           </div>
-          <span className="text-xs font-mono bg-white border border-slate-200 px-3 py-1 rounded-md text-ink-secondary font-semibold shadow-subtle">
-            Active Focus: <strong className="text-primary">{selectedFacility.shortName} × {selectedSerotype}</strong>
+        </div>
+
+        <Button
+          variant="secondary"
+          size="sm"
+          icon="refresh"
+          onClick={() => void loadRadar()}
+          disabled={isLoading}
+        >
+          {isLoading ? 'Refreshing…' : 'Refresh data'}
+        </Button>
+      </div>
+
+      {/* Loading state */}
+      {isLoading && radarItems.length === 0 && (
+        <GlassPanel className="p-10 text-center">
+          <span className="material-symbols-outlined text-3xl text-primary animate-spin">
+            progress_activity
           </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-mono border-collapse" role="grid" aria-label="Regional Blood Inventory Matrix">
-            <thead>
-              <tr className="bg-slate-50/80 text-ink-secondary border-b border-slate-200/80">
-                <th className="py-3.5 px-6 font-bold uppercase tracking-wider sticky left-0 bg-slate-50/95 z-20 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.06)] min-w-[240px]">
-                  Facility Hub
-                </th>
-                {SEROTYPES.map(bg => (
-                  <th
-                    key={bg}
-                    className={`py-3.5 px-3 text-center font-bold uppercase tracking-wider min-w-[84px] ${
-                      selectedSerotype === bg ? 'bg-red-50/60 text-primary border-x border-red-200/60' : ''
-                    }`}
-                  >
-                    {bg}
-                  </th>
-                ))}
-                <th className="py-3.5 px-6 text-center font-bold uppercase tracking-wider min-w-[120px]">
-                  Postural Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {facilities.map(facility => {
-                const isSelectedFacility = facility.facilityId === selectedFacilityId;
-
-                return (
-                  <tr
-                    key={facility.facilityId}
-                    className={`transition-colors ${
-                      isSelectedFacility ? 'bg-red-50/20' : 'hover:bg-slate-50/50'
-                    }`}
-                  >
-                    {/* Sticky Facility Column */}
-                    <td className={`py-3.5 px-6 font-sans sticky left-0 z-10 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.06)] ${
-                      isSelectedFacility ? 'bg-slate-50' : 'bg-white'
-                    }`}>
-                      <div className="flex items-center gap-2.5">
-                        <span
-                          className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                            facility.activeAlertCount > 0 ? 'bg-primary animate-beacon' : 'bg-emerald-600'
-                          }`}
-                          aria-hidden="true"
-                        />
-                        <div className="min-w-0">
-                          <span className="font-bold text-ink-main block leading-tight text-[13px] truncate">
-                            {facility.facilityName}
-                          </span>
-                          <span className="text-[11px] text-ink-secondary font-mono block mt-0.5">
-                            {facility.location}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* 8 Serotype Cells with Proportional Micro-Stock Meters */}
-                    {SEROTYPES.map(bg => {
-                      const item = facility.stocks[bg];
-                      const isCellActive = isSelectedFacility && selectedSerotype === bg;
-                      const isCritical = item.status === 'critical';
-                      const isWarning = item.status === 'warning';
-                      const fillPercent = Math.min(100, Math.round((item.units / Math.max(item.safetyFloor, 1)) * 100));
-
-                      return (
-                        <td
-                          key={bg}
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`${facility.shortName}, group ${bg}, ${item.units} units against ${item.safetyFloor} unit safety floor, status ${item.status}`}
-                          onClick={() => handleCellClick(facility.facilityId, bg)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              handleCellClick(facility.facilityId, bg);
-                            }
-                          }}
-                          className={`py-2.5 px-3 text-center cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset ${
-                            isCellActive
-                              ? 'bg-red-100/70 ring-2 ring-primary ring-inset font-bold text-primary shadow-subtle'
-                              : isCritical
-                              ? 'bg-red-50/80 text-primary hover:bg-red-100/60'
-                              : isWarning
-                              ? 'bg-amber-50/60 text-amber-900 hover:bg-amber-100/60'
-                              : 'text-ink-main hover:bg-slate-100/60'
-                          } ${selectedSerotype === bg && !isCellActive ? 'bg-slate-50/60' : ''}`}
-                        >
-                          <div className="flex flex-col items-center justify-center gap-1">
-                            <span className="font-bold text-[13px] tabular-nums leading-none">
-                              {item.units}u
-                            </span>
-
-                            {/* Proportional Micro-Stock Gauge */}
-                            <div
-                              className="w-12 h-1 bg-slate-200/80 rounded-full overflow-hidden"
-                              aria-hidden="true"
-                            >
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  isCritical
-                                    ? 'bg-primary'
-                                    : isWarning
-                                    ? 'bg-amber-500'
-                                    : 'bg-emerald-600'
-                                }`}
-                                style={{ width: `${fillPercent}%` }}
-                              />
-                            </div>
-
-                            <span className="text-[10px] text-ink-secondary font-mono leading-none">
-                              fl:{item.safetyFloor}u
-                            </span>
-                          </div>
-                        </td>
-                      );
-                    })}
-
-                    {/* Status Pill */}
-                    <td className="py-3.5 px-6 text-center">
-                      <span
-                        className={`inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider ${
-                          facility.activeAlertCount > 0
-                            ? 'bg-red-50 text-primary border border-red-200'
-                            : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                        }`}
-                      >
-                        {facility.activeAlertCount > 0 ? `${facility.activeAlertCount} Shortage` : 'Stable'}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </GlassPanel>
+          <p className="mt-3 font-semibold text-ink-main">
+            Loading regional inventory…
+          </p>
+          <p className="mt-1 text-sm text-ink-secondary">
+            Fetching the latest response from the radar API.
+          </p>
+        </GlassPanel>
       )}
 
-      {/* 5. Active Shortage Triage: Depletion Forecast & Threshold Crossover */}
-      <GlassPanel isCritical elevation={2} className="p-6 lg:p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
-          <div>
-            <div className="flex items-center gap-2 text-[11px] font-mono font-bold text-primary uppercase tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-primary animate-beacon" aria-hidden="true" />
-              <span>Active Shortage Triage Drill-Down</span>
-            </div>
-            <h3 className="font-display font-bold text-xl text-ink-main mt-0.5">
-              {selectedFacility.facilityName} • {selectedSerotype} Depletion Trajectory
-            </h3>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-ink-secondary">
-              Confidence: <strong className="text-ink-main">98.2%</strong> (Monte Carlo n=5,000)
+      {/* API error state */}
+      {error && (
+        <GlassPanel className="p-5 border border-red-200">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined text-primary">
+              error
             </span>
-            <Link to="/decision-center">
-              <Button variant="primary" size="sm" icon="rule" iconPosition="right">
-                Evaluate in Decision Center
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* 2-Column: Telemetry Gauges (Left 4 cols) & High-Precision SVG Runout Spline (Right 8 cols) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Left Telemetry */}
-          <div className="lg:col-span-4 space-y-4 border-b lg:border-b-0 lg:border-r border-slate-200/80 pb-6 lg:pb-0 lg:pr-6">
-            <div className="p-4 rounded-xl bg-red-50/50 border border-red-200/90 shadow-subtle">
-              <span className="text-[11px] font-mono uppercase text-ink-secondary font-bold tracking-wider">
-                Current Reserve vs Required Safety Floor
-              </span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-4xl font-display font-extrabold text-primary tabular-nums">
-                  {selectedStock?.units ?? 8}
-                </span>
-                <span className="text-lg font-display font-bold text-ink-secondary tabular-nums">
-                  / {selectedStock?.safetyFloor ?? 26} Units
-                </span>
-              </div>
-              <div className="mt-2 text-xs font-semibold text-primary flex items-center gap-1.5 font-mono">
-                <span className="material-symbols-outlined text-[16px]">warning</span>
-                <span>
-                  Net Deficit: {(selectedStock?.units ?? 8) - (selectedStock?.safetyFloor ?? 26)} Units
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                <span className="text-[10px] font-mono uppercase text-ink-secondary font-bold">Exhaustion Horizon</span>
-                <div className="text-xl font-display font-bold text-primary mt-0.5 tabular-nums">T+18h</div>
-                <span className="text-[11px] text-ink-secondary font-mono">02:40 IST Breach</span>
-              </div>
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                <span className="text-[10px] font-mono uppercase text-ink-secondary font-bold">Burn Velocity</span>
-                <div className="text-xl font-display font-bold text-ink-main mt-0.5 tabular-nums">1.28 u/h</div>
-                <span className="text-[11px] text-ink-secondary font-mono">14 OR Bookings</span>
-              </div>
-            </div>
-
-            {/* Recommended Cold-Chain Corridor Hook */}
-            <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs">
-              <div className="flex items-center gap-1 text-emerald-900 font-bold">
-                <span className="material-symbols-outlined text-[16px]">local_shipping</span>
-                <span>Rebalance Solution Available</span>
-              </div>
-              <p className="text-ink-secondary mt-1 leading-snug">
-                Noida Regional Center (Bank B) holds <strong className="text-ink-main">47 units of O−</strong> (+32u surplus). Feasible transfer ETA: <strong className="text-ink-main">38 mins</strong> via NH-24.
+            <div className="flex-1">
+              <h2 className="font-bold text-ink-main">
+                Radar data could not be loaded
+              </h2>
+              <p className="mt-1 text-sm text-ink-secondary break-words">
+                {error}
               </p>
+              <p className="mt-2 text-xs text-ink-secondary">
+                Check that FastAPI is running and that the frontend API
+                base URL points to the correct backend.
+              </p>
+              <button
+                type="button"
+                onClick={() => void loadRadar()}
+                className="mt-3 text-sm font-bold text-primary underline underline-offset-4"
+              >
+                Try again
+              </button>
             </div>
           </div>
+        </GlassPanel>
+      )}
 
-          {/* Right SVG Chart */}
-          <div className="lg:col-span-8 flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs pb-2">
-              <span className="font-bold text-ink-main">72-Hour Inventory Depletion Forecast</span>
-              <div className="flex items-center gap-3 text-[11px] font-mono">
-                <span className="flex items-center gap-1 text-ink-main">
-                  <span className="w-3 h-1 bg-ink-main rounded-full" /> Actual
+      {/* Render data-dependent sections only when data exists */}
+      {radarItems.length > 0 && selectedFacility && selectedStock && (
+        <>
+          {/* Summary metrics */}
+          <section className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+            <GlassPanel className="p-4">
+              <p className="text-[11px] font-mono uppercase tracking-wider text-ink-secondary">
+                Available units
+              </p>
+              <p className="mt-1 text-3xl font-display font-extrabold text-ink-main tabular-nums">
+                {totals.totalUnits}
+              </p>
+              <p className="text-xs text-ink-secondary mt-1">
+                Across {totals.recordCount} inventory records
+              </p>
+            </GlassPanel>
+
+            <GlassPanel className="p-4">
+              <p className="text-[11px] font-mono uppercase tracking-wider text-ink-secondary">
+                Critical records
+              </p>
+              <p className="mt-1 text-3xl font-display font-extrabold text-primary tabular-nums">
+                {totals.redCount}
+              </p>
+              <p className="text-xs text-ink-secondary mt-1">
+                Backend risk: RED
+              </p>
+            </GlassPanel>
+
+            <GlassPanel className="p-4">
+              <p className="text-[11px] font-mono uppercase tracking-wider text-ink-secondary">
+                Warning records
+              </p>
+              <p className="mt-1 text-3xl font-display font-extrabold text-amber-700 tabular-nums">
+                {totals.amberCount}
+              </p>
+              <p className="text-xs text-ink-secondary mt-1">
+                Backend risk: AMBER
+              </p>
+            </GlassPanel>
+
+            <GlassPanel className="p-4">
+              <p className="text-[11px] font-mono uppercase tracking-wider text-ink-secondary">
+                Facilities
+              </p>
+              <p className="mt-1 text-3xl font-display font-extrabold text-ink-main tabular-nums">
+                {totals.facilityCount}
+              </p>
+              <p className="text-xs text-ink-secondary mt-1">
+                Present in the API response
+              </p>
+            </GlassPanel>
+          </section>
+
+          {/* 2. Filters and view controls */}
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-white border border-slate-200/90 p-3.5 rounded-xl shadow-subtle">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-mono font-bold text-ink-secondary uppercase">
+                Blood group:
+              </span>
+
+              <SegmentedControl
+                options={serotypeOptions}
+                value={selectedSerotype}
+                onChange={(value) =>
+                  setSelectedSerotype(value as BloodGroup)
+                }
+                label="Blood group selector"
+              />
+            </div>
+
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-ink-secondary uppercase">
+                  View:
                 </span>
-                <span className="flex items-center gap-1 text-primary">
-                  <span className="w-3 h-0.5 border-t-2 border-dashed border-primary" /> Projected
+
+                <SegmentedControl
+                  options={viewModeOptions}
+                  value={viewMode}
+                  onChange={handleViewModeChange}
+                  label="Radar view mode selector"
+                  size="sm"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 text-xs font-mono text-ink-secondary">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-primary" />
+                  RED
                 </span>
-                <span className="flex items-center gap-1 text-ink-secondary">
-                  <span className="w-3 h-0.5 border-t-2 border-dotted border-slate-400" /> Floor (26u)
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-amber-500" />
+                  AMBER
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-emerald-600" />
+                  GREEN
                 </span>
               </div>
             </div>
-
-            {/* Visual SVG Chart */}
-            <div className="w-full h-64 relative mt-2 bg-slate-50/60 rounded-xl border border-slate-200/80 p-2">
-              <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 760 260" aria-label="72-Hour Inventory Depletion Forecast chart">
-                <defs>
-                  <linearGradient id="chartDeficitFill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#93000B" stopOpacity="0.22" />
-                    <stop offset="100%" stopColor="#93000B" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-
-                {/* Gridlines */}
-                <line x1="50" x2="720" y1="40" y2="40" stroke="#E2E8F0" strokeDasharray="2 2" strokeWidth="1" />
-                <line x1="50" x2="720" y1="90" y2="90" stroke="#E2E8F0" strokeDasharray="2 2" strokeWidth="1" />
-                <line x1="50" x2="720" y1="140" y2="140" stroke="#E2E8F0" strokeDasharray="2 2" strokeWidth="1" />
-                <line x1="50" x2="720" y1="190" y2="190" stroke="#E2E8F0" strokeDasharray="2 2" strokeWidth="1" />
-
-                {/* Safety Floor line (26 Units) */}
-                <line x1="50" x2="720" y1="75" y2="75" stroke="#475569" strokeDasharray="5 4" strokeWidth="1.8" />
-                <text x="560" y="68" fill="#334155" fontSize="10" fontWeight="700" fontFamily="JetBrains Mono">
-                  MANDATED FLOOR: 26u BUFFER
-                </text>
-
-                {/* Zero line */}
-                <line x1="50" x2="720" y1="190" y2="190" stroke="#93000B" strokeDasharray="3 3" strokeOpacity="0.5" strokeWidth="1.5" />
-                <text x="645" y="185" fill="#64748B" fontSize="9.5" fontWeight="600" fontFamily="JetBrains Mono">
-                  ZERO LINE: 0u
-                </text>
-
-                {/* Area Gradient */}
-                <path d="M 270,145 Q 360,170 415,185 T 570,216 T 710,232 L 710,245 L 270,245 Z" fill="url(#chartDeficitFill)" />
-
-                {/* Historical Actual (Solid Line) */}
-                <path d="M 65,95 Q 160,115 270,145" fill="none" stroke="#0F172A" strokeWidth="3" strokeLinecap="round" />
-
-                {/* Projected Depletion (Crimson Dashed) */}
-                <path d="M 270,145 Q 360,170 415,185 T 570,216 T 710,232" fill="none" stroke="#93000B" strokeWidth="3" strokeDasharray="7 4" strokeLinecap="round" />
-
-                {/* Now Marker (T=0, 8u) */}
-                <circle cx="270" cy="145" r="6" fill="#0F172A" stroke="#FFFFFF" strokeWidth="2.5" />
-                <rect x="230" y="110" width="80" height="22" rx="4" fill="#0F172A" />
-                <text x="270" y="125" textAnchor="middle" fill="#FFFFFF" fontSize="10.5" fontWeight="700" fontFamily="Inter">
-                  NOW (8u)
-                </text>
-
-                {/* Crossover Breach Point at T+18h */}
-                <circle cx="415" cy="185" r="14" fill="#FF4D4D" opacity="0.25" className="risk-pulse-critical" />
-                <circle cx="415" cy="185" r="6" fill="#93000B" stroke="#FFFFFF" strokeWidth="2.5" />
-                <line x1="415" x2="415" y1="20" y2="185" stroke="#93000B" strokeDasharray="2 2" strokeWidth="1.5" />
-
-                {/* Crossover Badge */}
-                <rect x="290" y="12" width="250" height="26" rx="6" fill="#FFF1F0" stroke="#FFDAD6" strokeWidth="1.5" />
-                <text x="305" y="29" fill="#93000B" fontSize="10" fontWeight="800" fontFamily="JetBrains Mono">
-                  ● CROSSOVER AT T+18h: −18u GAP
-                </text>
-
-                {/* Axis Labels */}
-                <text x="55" y="248" fill="#64748B" fontSize="10" fontFamily="JetBrains Mono">T−24h (Actual)</text>
-                <text x="250" y="248" fill="#0F172A" fontSize="10" fontWeight="700" fontFamily="JetBrains Mono">T+0h Now (8u)</text>
-                <text x="385" y="248" fill="#93000B" fontSize="10" fontWeight="800" fontFamily="JetBrains Mono">T+18h (Breach)</text>
-                <text x="545" y="248" fill="#64748B" fontSize="10" fontFamily="JetBrains Mono">T+36h</text>
-                <text x="680" y="248" fill="#64748B" fontSize="10" fontFamily="JetBrains Mono">T+48h</text>
-              </svg>
-            </div>
-
-            {/* Next Step Action Anchor */}
-            <div className="mt-4 pt-3 border-t border-slate-200/80 flex items-center justify-between">
-              <span className="text-xs text-ink-secondary font-mono">
-                Recommended Action: Cold-chain inter-bank transfer from Bank B to close the 18u gap.
-              </span>
-              <Link to="/decision-center">
-                <Button variant="primary" size="sm" icon="arrow_forward" iconPosition="right">
-                  Proceed to Decision Center
-                </Button>
-              </Link>
-            </div>
           </div>
-        </div>
-      </GlassPanel>
+
+          {/* 3. Existing 3D radar component */}
+          {(viewMode === 'both' || viewMode === '3d') && (
+            <RadarNetwork3D
+              selectedSerotype={selectedSerotype}
+              selectedFacilityId={selectedFacilityId}
+              onSelectFacility={handleFacilitySelect}
+            />
+          )}
+
+          {/* 4. API-backed inventory matrix */}
+          {(viewMode === 'both' || viewMode === 'matrix') && (
+            <GlassPanel className="p-0 overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-200/80 flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-50/50">
+                <div>
+                  <h2 className="font-display font-bold text-base text-ink-main">
+                    Regional Blood Inventory Matrix
+                  </h2>
+                  <p className="text-xs text-ink-secondary mt-0.5">
+                    {totals.facilityCount} facilities · {SEROTYPES.length} blood groups.
+                    Select any inventory cell to inspect its risk and stock details.
+                  </p>
+                </div>
+
+                <span className="text-xs font-mono bg-white border border-slate-200 px-3 py-2 rounded-md text-ink-secondary font-semibold shadow-subtle">
+                  Active focus:{' '}
+                  <strong className="text-primary">
+                    {selectedFacility.shortName} × {selectedSerotype}
+                  </strong>
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table
+                  className="w-full text-left text-xs font-mono border-collapse"
+                  aria-label="Regional blood inventory matrix"
+                >
+                  <thead>
+                    <tr className="bg-slate-50/80 text-ink-secondary border-b border-slate-200/80">
+                      <th className="py-3.5 px-6 font-bold uppercase tracking-wider sticky left-0 bg-slate-50/95 z-20 min-w-[230px]">
+                        Facility
+                      </th>
+
+                      {SEROTYPES.map((group) => (
+                        <th
+                          key={group}
+                          scope="col"
+                          className={`py-3.5 px-3 text-center font-bold uppercase tracking-wider min-w-[78px] ${
+                            selectedSerotype === group
+                              ? 'bg-red-50/60 text-primary border-x border-red-200/60'
+                              : ''
+                          }`}
+                        >
+                          {group}
+                        </th>
+                      ))}
+
+                      <th
+                        scope="col"
+                        className="py-3.5 px-5 text-center font-bold uppercase tracking-wider min-w-[115px]"
+                      >
+                        Risk status
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100">
+                    {facilities.map((facility) => {
+                      const isSelectedFacility =
+                        facility.facilityId === selectedFacilityId;
+
+                      const facilityHighestRisk: ApiRisk =
+                        SEROTYPES.some(
+                          (group) =>
+                            facility.stocks[group].risk === 'RED',
+                        )
+                          ? 'RED'
+                          : SEROTYPES.some(
+                              (group) =>
+                                facility.stocks[group].risk === 'AMBER',
+                            )
+                          ? 'AMBER'
+                          : 'GREEN';
+
+                      return (
+                        <tr
+                          key={facility.facilityId}
+                          className={`transition-colors ${
+                            isSelectedFacility
+                              ? 'bg-red-50/20'
+                              : 'hover:bg-slate-50/50'
+                          }`}
+                        >
+                          <th
+                            scope="row"
+                            className={`py-3.5 px-6 font-sans text-left sticky left-0 z-10 ${
+                              isSelectedFacility
+                                ? 'bg-slate-50'
+                                : 'bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span
+                                className={`w-2 h-2 rounded-full flex-shrink-0 ${getRiskDot(
+                                  facilityHighestRisk,
+                                )}`}
+                                aria-hidden="true"
+                              />
+
+                              <div className="min-w-0">
+                                <span className="font-bold text-ink-main block leading-tight text-[13px]">
+                                  {facility.facilityName}
+                                </span>
+                                <span className="text-[11px] text-ink-secondary font-mono block mt-0.5">
+                                  {facility.location}
+                                </span>
+                                <span className="text-[10px] text-ink-secondary font-mono block mt-0.5">
+                                  {facility.facilityId}
+                                </span>
+                              </div>
+                            </div>
+                          </th>
+
+                          {SEROTYPES.map((group) => {
+                            const stock = facility.stocks[group];
+                            const isActive =
+                              isSelectedFacility &&
+                              selectedSerotype === group;
+
+                            const fillPercent =
+                              stock.safetyFloor > 0
+                                ? Math.min(
+                                    100,
+                                    Math.round(
+                                      (stock.units / stock.safetyFloor) *
+                                        100,
+                                    ),
+                                  )
+                                : stock.units > 0
+                                ? 100
+                                : 0;
+
+                            const barColor =
+                              stock.risk === 'RED'
+                                ? 'bg-primary'
+                                : stock.risk === 'AMBER'
+                                ? 'bg-amber-500'
+                                : 'bg-emerald-600';
+
+                            return (
+                              <td
+                                key={group}
+                                className={`p-0 text-center ${
+                                  selectedSerotype === group
+                                    ? 'bg-slate-50/40'
+                                    : ''
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleCellClick(
+                                      facility.facilityId,
+                                      group,
+                                    )
+                                  }
+                                  aria-pressed={isActive}
+                                  aria-label={`${facility.facilityName}, ${group}: ${stock.units} units, safety floor ${stock.safetyFloor}, risk ${stock.risk}. Select inventory record.`}
+                                  className={`w-full min-h-[76px] py-2.5 px-2 flex flex-col items-center justify-center gap-1 transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset ${
+                                    isActive
+                                      ? 'bg-red-100/70 ring-2 ring-primary ring-inset font-bold text-primary'
+                                      : stock.risk === 'RED'
+                                      ? 'bg-red-50/80 text-primary hover:bg-red-100/60'
+                                      : stock.risk === 'AMBER'
+                                      ? 'bg-amber-50/60 text-amber-900 hover:bg-amber-100/60'
+                                      : 'text-ink-main hover:bg-slate-100/60'
+                                  }`}
+                                >
+                                  <span className="font-bold text-[13px] tabular-nums leading-none">
+                                    {stock.units}u
+                                  </span>
+
+                                  <span className="w-12 h-1 bg-slate-200/80 rounded-full overflow-hidden">
+                                    <span
+                                      className={`block h-full rounded-full ${barColor}`}
+                                      style={{
+                                        width: `${fillPercent}%`,
+                                      }}
+                                    />
+                                  </span>
+
+                                  <span className="text-[10px] text-ink-secondary font-mono leading-none">
+                                    Floor: {stock.safetyFloor}u
+                                  </span>
+                                </button>
+                              </td>
+                            );
+                          })}
+
+                          <td className="py-3.5 px-4 text-center">
+                            <span
+                              className={`inline-flex px-2.5 py-1 rounded-full border text-[10px] font-mono font-bold uppercase tracking-wider ${getRiskClasses(
+                                facilityHighestRisk,
+                              )}`}
+                            >
+                              {formatRisk(facilityHighestRisk)}
+                            </span>
+                            <p className="text-[10px] text-ink-secondary mt-1">
+                              {facility.activeAlertCount} flagged
+                            </p>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="px-5 py-3 border-t border-slate-200/80 bg-slate-50/60">
+                <p className="text-[11px] text-ink-secondary leading-relaxed">
+                  The stock bar represents available units relative to the
+                  safety floor, capped at 100%. A safety-floor shortfall
+                  is not the same as the API's projected demand gap.
+                </p>
+              </div>
+            </GlassPanel>
+          )}
+
+          {/* 5. Selected inventory triage */}
+          <GlassPanel
+            isCritical={selectedStock.risk === 'RED'}
+            elevation={2}
+            className="p-6 lg:p-8 space-y-6"
+          >
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+              <div>
+                <div className="flex items-center gap-2 text-[11px] font-mono font-bold text-primary uppercase tracking-wider">
+                  <span
+                    className={`w-2 h-2 rounded-full ${getRiskDot(
+                      selectedStock.risk,
+                    )}`}
+                  />
+                  <span>Selected Inventory Record</span>
+                </div>
+
+                <h2 className="font-display font-bold text-xl text-ink-main mt-1">
+                  {selectedFacility.facilityName} · {selectedSerotype}
+                </h2>
+
+                <p className="text-xs text-ink-secondary mt-1">
+                  {selectedFacility.location} · {selectedFacility.facilityId}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <span
+                  className={`inline-flex px-3 py-1.5 rounded-full border text-xs font-mono font-bold uppercase ${getRiskClasses(
+                    selectedStock.risk,
+                  )}`}
+                >
+                  {selectedStock.risk} risk
+                </span>
+
+                <Link to="/decision-center">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon="rule"
+                    iconPosition="right"
+                  >
+                    Open Decision Center
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Inventory metrics */}
+              <div className="lg:col-span-5 space-y-4">
+                <div className="p-5 rounded-xl bg-red-50/50 border border-red-200/90">
+                  <span className="text-[11px] font-mono uppercase text-ink-secondary font-bold tracking-wider">
+                    Available stock vs safety floor
+                  </span>
+
+                  <div className="flex items-baseline gap-2 mt-2">
+                    <span className="text-4xl font-display font-extrabold text-primary tabular-nums">
+                      {selectedStock.units}
+                    </span>
+                    <span className="text-lg font-display font-bold text-ink-secondary tabular-nums">
+                      / {selectedStock.safetyFloor} units
+                    </span>
+                  </div>
+
+                  <div className="mt-3 text-sm font-semibold flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-primary">
+                      {safetyFloorDifference < 0
+                        ? 'warning'
+                        : 'inventory_2'}
+                    </span>
+
+                    <span
+                      className={
+                        safetyFloorDifference < 0
+                          ? 'text-primary'
+                          : 'text-emerald-800'
+                      }
+                    >
+                      {safetyFloorDifference < 0
+                        ? `${Math.abs(safetyFloorDifference)} units below safety floor`
+                        : safetyFloorDifference === 0
+                        ? 'Exactly at safety floor'
+                        : `${safetyFloorDifference} units above safety floor`}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[10px] font-mono uppercase text-ink-secondary font-bold">
+                      Expected demand
+                    </span>
+                    <div className="text-2xl font-display font-bold text-ink-main mt-1 tabular-nums">
+                      {selectedStock.expectedDemand24h}
+                    </div>
+                    <span className="text-[11px] text-ink-secondary">
+                      Next 24 hours · API value
+                    </span>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[10px] font-mono uppercase text-ink-secondary font-bold">
+                      Expected incoming
+                    </span>
+                    <div className="text-2xl font-display font-bold text-ink-main mt-1 tabular-nums">
+                      {selectedStock.expectedIncomingUnits}
+                    </div>
+                    <span className="text-[11px] text-ink-secondary">
+                      Units · API value
+                    </span>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[10px] font-mono uppercase text-ink-secondary font-bold">
+                      Projected gap
+                    </span>
+                    <div className={`text-2xl font-display font-bold mt-1 tabular-nums ${
+                      selectedStock.projectedGap > 0
+                        ? 'text-primary'
+                        : 'text-ink-main'
+                    }`}>
+                      {selectedStock.projectedGap > 0 ? '+' : ''}
+                      {selectedStock.projectedGap}
+                    </div>
+                    <span className="text-[11px] text-ink-secondary">
+                      As returned by the API
+                    </span>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[10px] font-mono uppercase text-ink-secondary font-bold">
+                      Risk window
+                    </span>
+                    <div className="text-2xl font-display font-bold text-ink-main mt-1 tabular-nums">
+                      {selectedStock.riskWindowHours > 0
+                        ? `${selectedStock.riskWindowHours}h`
+                        : '—'}
+                    </div>
+                    <span className="text-[11px] text-ink-secondary">
+                      Not a confirmed runout time
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 bg-white">
+                  <h3 className="text-sm font-bold text-ink-main">
+                    Interpreting this record
+                  </h3>
+                  <p className="mt-1.5 text-xs text-ink-secondary leading-relaxed">
+                    The safety-floor difference is calculated from current
+                    stock and the required floor. The projected gap and
+                    risk window are supplied independently by the backend.
+                    They are not interchangeable measures.
+                  </p>
+                </div>
+              </div>
+
+              {/* Honest forecast panel */}
+              <div className="lg:col-span-7">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                  <div>
+                    <h3 className="font-bold text-ink-main text-sm">
+                      Inventory forecast
+                    </h3>
+                    <p className="text-xs text-ink-secondary mt-1">
+                      Forecast chart awaiting time-series data
+                    </p>
+                  </div>
+
+                  <span className="text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full border border-amber-200 bg-amber-50 text-amber-800">
+                    Not yet available
+                  </span>
+                </div>
+
+                <div className="min-h-[300px] h-full rounded-xl border border-slate-200 bg-slate-50/70 p-6 flex flex-col items-center justify-center text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-3xl text-ink-secondary">
+                      monitoring
+                    </span>
+                  </div>
+
+                  <h4 className="mt-4 font-display font-bold text-ink-main">
+                    Time-series forecast not provided
+                  </h4>
+
+                  <p className="mt-2 max-w-md text-sm text-ink-secondary leading-relaxed">
+                    The current radar endpoint provides inventory, expected
+                    24-hour demand, expected incoming units, a projected gap
+                    and a risk window. It does not provide hourly inventory
+                    points needed to draw a verified 72-hour depletion curve.
+                  </p>
+
+                  <div className="mt-5 grid grid-cols-2 gap-3 w-full max-w-sm text-left">
+                    <div className="p-3 rounded-lg bg-white border border-slate-200">
+                      <p className="text-[10px] font-mono uppercase text-ink-secondary">
+                        Current stock
+                      </p>
+                      <p className="text-xl font-bold text-ink-main mt-1">
+                        {selectedStock.units} units
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white border border-slate-200">
+                      <p className="text-[10px] font-mono uppercase text-ink-secondary">
+                        Safety floor
+                      </p>
+                      <p className="text-xl font-bold text-ink-main mt-1">
+                        {selectedStock.safetyFloor} units
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="mt-4 text-[11px] text-ink-secondary">
+                    Method: {method}
+                  </p>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <p className="text-xs text-ink-secondary leading-relaxed">
+                    Recommended next step: review this inventory record
+                    before deciding on a transfer or donor mobilization.
+                  </p>
+
+                  <Link to="/decision-center" className="shrink-0">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon="arrow_forward"
+                      iconPosition="right"
+                    >
+                      Proceed to Decision Center
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </GlassPanel>
+        </>
+      )}
     </div>
   );
 };

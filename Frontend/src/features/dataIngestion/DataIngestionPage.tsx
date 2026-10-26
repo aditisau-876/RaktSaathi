@@ -1,281 +1,474 @@
 import React, { useState } from 'react';
 import { GlassPanel } from '@/components/common/GlassPanel';
-import { Button } from '@/components/common/Button';
 import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { MOCK_DOCUMENTS } from '@/data/mockDocuments';
 import { DocumentArtifact } from '@/core/types/ingestion';
-import { DataStream3D } from './DataStream3D';
 
 export const DataIngestionPage: React.FC = () => {
-  const [selectedDocId, setSelectedDocId] = useState<string>('DOC-TRIAGE-01');
-  const [simulatingBatch, setSimulatingBatch] = useState<boolean>(false);
+  const [selectedDocId, setSelectedDocId] = useState<string>(
+    MOCK_DOCUMENTS[0]?.id ?? '',
+  );
 
-  const selectedDoc: DocumentArtifact =
-    MOCK_DOCUMENTS.find(d => d.id === selectedDocId) || MOCK_DOCUMENTS[0];
+  const selectedDoc: DocumentArtifact | undefined = MOCK_DOCUMENTS.find(
+    (document) => document.id === selectedDocId,
+  );
 
-  const handleSimulateBatch = () => {
-    setSimulatingBatch(true);
-    setTimeout(() => {
-      setSimulatingBatch(false);
-    }, 1800);
-  };
-
-  const documentOptions = [
-    { value: 'DOC-TRIAGE-01', label: '1. Night Triage Sheet' },
-    { value: 'DOC-SURG-02', label: '2. Emergency Surgical Fax' },
-    { value: 'DOC-CAMP-03', label: '3. Camp Donation Log' },
-  ];
+  const documentOptions = MOCK_DOCUMENTS.map((document, index) => ({
+    value: document.id,
+    label: `${index + 1}. ${document.title}`,
+  }));
 
   const stages = [
     {
-      step: 1,
-      title: '01 • Multi-Channel Ingestion',
-      desc: 'Triage desks, legacy fax lines, barcode scanners, and camp logs.',
-      subtext: 'Transport: TLS 1.3 Edge',
-      icon: 'description',
+      step: '01',
+      title: 'Data Ingestion',
+      description:
+        'Receive source documents such as triage sheets, requisitions and donation logs.',
+      detail: 'INPUT',
+      icon: 'upload_file',
+      color: 'text-slate-600',
+      background: 'bg-slate-100',
     },
     {
-      step: 2,
-      title: '02 • Edge Extraction',
-      desc: 'Cloudinary Vision Model extracts fields & bounding boxes in 184ms.',
-      subtext: 'Confidence: 99.4% mean',
-      icon: 'visibility',
+      step: '02',
+      title: 'Field Extraction',
+      description:
+        'Extract relevant fields from document content using OCR or configured parsers.',
+      detail: 'EXTRACTION',
+      icon: 'document_scanner',
+      color: 'text-sky-700',
+      background: 'bg-sky-50',
     },
     {
-      step: 3,
-      title: '03 • Clinical Gate & NBTC',
-      desc: 'Automated NBTC compliance, cold-chain checks, and PII anonymization.',
-      subtext: 'Rules: 100% Passed',
-      icon: 'verified_user',
+      step: '03',
+      title: 'Validation',
+      description:
+        'Check extracted values against configured validation rules before acceptance.',
+      detail: 'QUALITY CHECK',
+      icon: 'fact_check',
+      color: 'text-emerald-700',
+      background: 'bg-emerald-50',
     },
     {
-      step: 4,
-      title: '04 • Snowflake Lakehouse',
-      desc: 'Structured into relational inventory dimensions & telemetry tables.',
-      subtext: 'Latency: 14ms Stream',
+      step: '04',
+      title: 'Structured Data',
+      description:
+        'Represent validated information in a structured format for downstream use.',
+      detail: 'TRANSFORMATION',
       icon: 'database',
+      color: 'text-violet-700',
+      background: 'bg-violet-50',
     },
     {
-      step: 5,
-      title: '05 • Downstream Dispatch',
-      desc: 'Instant trigger of Shortage Radar alerts and Decision Center re-routes.',
-      subtext: 'Deficit Engine: ARMED',
-      icon: 'crisis_alert',
+      step: '05',
+      title: 'Downstream Use',
+      description:
+        'Make accepted data available to connected inventory and shortage-management workflows.',
+      detail: 'INTEGRATION',
+      icon: 'account_tree',
+      color: 'text-rose-700',
+      background: 'bg-rose-50',
     },
   ];
 
   return (
-    <div className="space-y-8">
-      {/* 1. Header & Controls */}
-      <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-4 border-b border-slate-200">
-        <div className="space-y-1.5 max-w-3xl">
-          <div className="flex items-center gap-2 text-xs font-mono text-primary font-bold tracking-wider">
-            <span className="material-symbols-outlined text-[16px]">document_scanner</span>
-            <span>ETL PIPELINE INTELLIGENCE • SNOWFLAKE LAKEHOUSE EDGE</span>
-          </div>
-          <h1 className="text-3xl font-display font-extrabold text-ink-main tracking-tight">
-            Data Ingestion: Operational inputs into trusted intelligence
-          </h1>
-          <p className="text-sm text-ink-muted leading-relaxed">
-            Automated edge pipeline transforming physical paper triage registers, emergency fax requisitions, and cold-chain barcode manifests into verified clinical truth within milliseconds.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button
-            variant="primary"
-            icon="play_circle"
-            onClick={handleSimulateBatch}
-            isLoading={simulatingBatch}
-          >
-            {simulatingBatch ? 'Processing Ingest Stream...' : 'Simulate Live Ingest Batch'}
-          </Button>
-        </div>
-      </section>
-
-      {/* 2. Process Health & Pipeline Status Banner (Process-Focused, Not Generic Cards) */}
-      <div className="bg-white border border-slate-200/90 rounded-xl p-5 shadow-subtle">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2 font-mono text-xs font-bold text-ink-main uppercase tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-beacon" aria-hidden="true" />
-            <span>Ingestion Pipeline Operational Health</span>
-          </div>
-          <span className="text-xs font-mono text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
-            5/5 Channels Online &bull; Zero Backlog
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80">
-            <span className="text-[10px] text-ink-secondary uppercase block">24h Throughput</span>
-            <strong className="text-xl font-display font-bold text-ink-main tabular-nums block mt-0.5">
-              1,420 Records
-            </strong>
-            <span className="text-[11px] text-emerald-700 font-bold">+18.4% capacity</span>
-          </div>
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80">
-            <span className="text-[10px] text-ink-secondary uppercase block">Cloudinary OCR Precision</span>
-            <strong className="text-xl font-display font-bold text-ink-main tabular-nums block mt-0.5">
-              99.4% Confidence
-            </strong>
-            <span className="text-[11px] text-ink-secondary">Edge Vision v4.2</span>
-          </div>
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80">
-            <span className="text-[10px] text-ink-secondary uppercase block">Snowflake Sync Latency</span>
-            <strong className="text-xl font-display font-bold text-ink-main tabular-nums block mt-0.5">
-              14ms Stream
-            </strong>
-            <span className="text-[11px] text-sky-800 font-bold">Micro-batch TLS 1.3</span>
-          </div>
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80">
-            <span className="text-[10px] text-ink-secondary uppercase block">NBTC Clinical Gate</span>
-            <strong className="text-xl font-display font-bold text-emerald-700 tabular-nums block mt-0.5">
-              100% Pass Rate
-            </strong>
-            <span className="text-[11px] text-ink-secondary">Zero PII Leakage</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. 3D Spatial Data Ingestion Corridor */}
-      <DataStream3D isSimulating={simulatingBatch} />
-
-      {/* 4. 5-Stage Transformation Architecture Flow */}
-      <GlassPanel className="p-6 space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div>
-            <span className="text-xs font-mono uppercase font-bold text-primary">Architecture Flow</span>
-            <h2 className="font-display font-bold text-base text-ink-main">
-              End-to-End Clinical Data Transformation Corridor
-            </h2>
-          </div>
-          <span className="text-xs font-mono text-ink-secondary">Total Mean Latency: ~198ms</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          {stages.map(s => (
-            <div
-              key={s.step}
-              className={`p-4 rounded-xl border flex flex-col justify-between space-y-2 transition-all ${
-                s.step === 5
-                  ? 'bg-red-50/60 border-primary/40'
-                  : 'bg-slate-50 border-slate-200'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-mono font-bold uppercase text-ink-secondary">
-                    Stage 0{s.step}
-                  </span>
-                  <span className={`material-symbols-outlined text-[17px] ${
-                    s.step === 5 ? 'text-primary' : 'text-slate-400'
-                  }`} aria-hidden="true">
-                    {s.icon}
-                  </span>
-                </div>
-                <h3 className="font-display font-bold text-xs text-ink-main">{s.title}</h3>
-                <p className="text-[11px] text-ink-secondary mt-1 leading-snug">{s.desc}</p>
-              </div>
-              <span className={`text-[10px] font-mono font-bold pt-2 border-t border-slate-200/60 block ${
-                s.step === 5 ? 'text-primary' : 'text-ink-secondary'
-              }`}>
-                {s.subtext}
+    <div className="space-y-7">
+      {/* Page heading */}
+      <section className="border-b border-slate-200 pb-5">
+        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+          <div className="max-w-3xl space-y-2">
+            <div className="flex items-center gap-2 font-mono text-xs font-bold tracking-wider text-primary">
+              <span
+                className="material-symbols-outlined text-[17px]"
+                aria-hidden="true"
+              >
+                document_scanner
               </span>
+              <span>DATA MANAGEMENT / DOCUMENT INGESTION</span>
             </div>
-          ))}
-        </div>
-      </GlassPanel>
 
-      {/* 4. Live Execution Workbench: Interactive Document Sandbox */}
-      <GlassPanel elevation={2} className="p-6 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-          <div>
-            <span className="text-xs font-mono uppercase font-bold text-primary">Live Execution Workbench</span>
-            <h2 className="font-display font-bold text-lg text-ink-main">
-              Interactive Document Ingestion Sandbox
-            </h2>
-            <p className="text-xs text-ink-secondary">
-              Select an operational artifact below to observe computer-vision field parsing and Snowflake lakehouse ingestion in real time.
+            <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-main sm:text-3xl">
+              Data Ingestion &amp; Validation
+            </h1>
+
+            <p className="max-w-2xl text-sm leading-relaxed text-ink-muted">
+              Review source documents, inspect extracted fields and examine
+              their structured representation before connecting the ingestion
+              workflow to inventory and shortage-management services.
             </p>
           </div>
 
-          {/* Unified Document Selector */}
-          <SegmentedControl
-            options={documentOptions}
-            value={selectedDocId}
-            onChange={setSelectedDocId}
-            size="sm"
-            label="Document artifact selector"
-          />
+          <div className="flex shrink-0 items-center gap-2 self-start rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 lg:self-auto">
+            <span
+              className="material-symbols-outlined text-[17px] text-amber-700"
+              aria-hidden="true"
+            >
+              science
+            </span>
+            <span className="text-xs font-semibold text-amber-800">
+              Sample document workspace
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Process overview */}
+      <GlassPanel className="space-y-5 p-5 sm:p-6">
+        <div className="flex flex-col justify-between gap-2 border-b border-slate-100 pb-4 sm:flex-row sm:items-center">
+          <div>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
+              Workflow Overview
+            </span>
+            <h2 className="mt-1 font-display text-lg font-bold text-ink-main">
+              From Source Document to Structured Data
+            </h2>
+            <p className="mt-1 text-xs leading-relaxed text-ink-muted">
+              The logical stages of the ingestion workflow.
+            </p>
+          </div>
+
+          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-semibold text-slate-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+            Architecture overview
+          </span>
         </div>
 
-        {/* Dual-Pane View: Document Preview (Left) & Structured JSON (Right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-          {/* Left Pane: Scan Preview with Bounding Boxes (6 cols) */}
-          <div className="lg:col-span-6 rs-light-visual rounded-[24px] p-5 flex flex-col justify-between relative overflow-hidden min-h-[360px]">
-            <div className="flex items-center justify-between text-xs font-mono pb-3 border-b border-red-100/70">
-              <span className="text-slate-400">{selectedDoc.source}</span>
-              <span className="text-emerald-400 font-bold">OCR: {selectedDoc.ocrConfidence}%</span>
-            </div>
-
-            {/* Document Emulation with Highlighted Bounding Boxes */}
-            <div className="my-4 p-5 bg-slate-800/80 rounded-xl border border-slate-700 space-y-3 font-mono text-xs">
-              <div className="text-[10px] text-slate-400 uppercase">Artifact ID: {selectedDoc.id}</div>
-              <div className="font-bold text-sm text-white">{selectedDoc.title}</div>
-
-              {/* Bounding Box Highlights */}
-              <div className="space-y-2 pt-2">
-                {selectedDoc.boundingBoxes.map(b => (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {stages.map((stage, index) => (
+            <React.Fragment key={stage.step}>
+              <div className="relative flex min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-slate-300">
+                <div className="flex items-start justify-between gap-2">
                   <div
-                    key={b.id}
-                    className={`p-2 rounded border flex items-center justify-between ${
-                      b.status === 'CRITICAL'
-                        ? 'bg-red-950/60 border-red-500 text-red-200'
-                        : b.status === 'WARNING'
-                        ? 'bg-amber-950/60 border-amber-500 text-amber-200'
-                        : 'bg-white/75 border-red-100 text-slate-600'
-                    }`}
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl ${stage.background} ${stage.color}`}
                   >
-                    <div>
-                      <span className="text-[9px] uppercase tracking-wider text-slate-400 block">{b.label}</span>
-                      <span className="font-bold">{b.text}</span>
-                    </div>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 font-mono font-bold">
-                      {b.status}
+                    <span
+                      className="material-symbols-outlined text-[21px]"
+                      aria-hidden="true"
+                    >
+                      {stage.icon}
                     </span>
                   </div>
-                ))}
+
+                  <span className="font-mono text-[10px] font-bold text-slate-400">
+                    {stage.step}
+                  </span>
+                </div>
+
+                <h3 className="mt-4 text-sm font-bold text-ink-main">
+                  {stage.title}
+                </h3>
+
+                <p className="mt-2 flex-1 text-xs leading-relaxed text-ink-muted">
+                  {stage.description}
+                </p>
+
+                <div className="mt-4 border-t border-slate-100 pt-3">
+                  <span
+                    className={`text-[9px] font-bold tracking-[0.1em] ${stage.color}`}
+                  >
+                    {stage.detail}
+                  </span>
+                </div>
+              </div>
+
+              {index < stages.length - 1 && (
+                <div
+                  className="hidden items-center justify-center text-slate-300 xl:flex"
+                  aria-hidden="true"
+                >
+                  <span className="material-symbols-outlined text-lg">
+                    arrow_forward
+                  </span>
+                </div>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+
+        <div className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <span
+            className="material-symbols-outlined mt-0.5 text-base text-slate-500"
+            aria-hidden="true"
+          >
+            info
+          </span>
+          <p className="text-xs leading-relaxed text-slate-600">
+            This diagram describes the intended processing flow. It does not
+            indicate that each stage is currently running or connected to a
+            live OCR engine, database or alert service.
+          </p>
+        </div>
+      </GlassPanel>
+
+      {/* Document inspection workbench */}
+      <GlassPanel elevation={2} className="space-y-5 p-5 sm:p-6">
+        <div className="flex flex-col justify-between gap-4 border-b border-slate-100 pb-4 lg:flex-row lg:items-start">
+          <div className="space-y-1">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
+              Document Workbench
+            </span>
+
+            <h2 className="font-display text-lg font-bold text-ink-main">
+              Document Preview &amp; Structured Payload
+            </h2>
+
+            <p className="max-w-2xl text-xs leading-relaxed text-ink-muted">
+              Select a sample artifact to inspect its document fields,
+              validation labels and associated structured payload.
+            </p>
+          </div>
+
+          {documentOptions.length > 0 && (
+            <div className="w-full lg:max-w-sm">
+              <SegmentedControl
+                options={documentOptions}
+                value={selectedDocId}
+                onChange={setSelectedDocId}
+                size="sm"
+                label="Select sample document"
+              />
+            </div>
+          )}
+        </div>
+
+        {!selectedDoc ? (
+          <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+            <span
+              className="material-symbols-outlined text-3xl text-slate-400"
+              aria-hidden="true"
+            >
+              description
+            </span>
+            <h3 className="mt-3 text-sm font-semibold text-ink-main">
+              No sample documents available
+            </h3>
+            <p className="mt-1 max-w-sm text-xs leading-relaxed text-ink-muted">
+              Add document artifacts to the sample document collection to
+              populate this workbench.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Selected artifact information */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Artifact ID
+                </div>
+                <div className="mt-1 break-all font-mono text-xs font-bold text-ink-main">
+                  {selectedDoc.id}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Source
+                </div>
+                <div className="mt-1 break-words text-xs font-semibold text-ink-main">
+                  {selectedDoc.source}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Sample OCR Confidence
+                </div>
+                <div className="mt-1 text-xs font-semibold text-ink-main">
+                  {selectedDoc.ocrConfidence}%
+                </div>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Value supplied by the sample artifact
+                </p>
               </div>
             </div>
 
-            <div className="text-[10px] font-mono text-slate-400 flex items-center justify-between pt-2 border-t border-red-100/70">
-              <span>Timestamp: {selectedDoc.timestamp}</span>
-              <span className="text-emerald-400 font-bold">LAKEHOUSE COMMITTED</span>
-            </div>
-          </div>
+            <div className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-2">
+              {/* Document preview */}
+              <section className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="material-symbols-outlined text-lg text-slate-500"
+                      aria-hidden="true"
+                    >
+                      article
+                    </span>
+                    <h3 className="text-xs font-bold text-ink-main">
+                      Source Document
+                    </h3>
+                  </div>
 
-          {/* Right Pane: Structured JSON View (6 cols) */}
-          <div className="lg:col-span-6 rs-light-console text-slate-600 rounded-[24px] p-5 font-mono text-xs flex flex-col justify-between overflow-x-auto min-h-[360px] border border-red-100/70">
-            <div className="flex items-center justify-between pb-3 border-b border-red-100/70">
-              <span className="text-[11px] text-slate-400 uppercase font-bold">
-                Snowflake Stream Payload (HL7 / FHIR JSON)
-              </span>
-              <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 text-[10px] font-bold border border-emerald-800">
-                SCHEMA LOCKED
-              </span>
-            </div>
+                  <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+                    Sample
+                  </span>
+                </div>
 
-            <pre className="p-3 my-2 text-[11px] text-emerald-400 leading-relaxed overflow-x-auto">
-              {JSON.stringify(selectedDoc.structuredPayload, null, 2)}
-            </pre>
+                <div className="flex flex-1 flex-col p-4 sm:p-5">
+                  <div className="rounded-xl border border-slate-700 bg-slate-900 p-4 sm:p-5">
+                    <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+                      <span className="font-mono text-[9px] uppercase tracking-wider text-slate-400">
+                        Document Artifact
+                      </span>
+                      <span className="font-mono text-[9px] text-slate-500">
+                        {selectedDoc.id}
+                      </span>
+                    </div>
 
-            <div className="pt-2 border-t border-red-100/70 text-[10px] text-slate-400 flex items-center justify-between">
-              <span>Auto-parsed via Cloudinary Edge Webhook</span>
-              <span className="text-white font-bold">Latency: 14ms</span>
+                    <h4 className="mt-4 text-sm font-bold leading-relaxed text-white">
+                      {selectedDoc.title}
+                    </h4>
+
+                    <div className="mt-4 space-y-2">
+                      {selectedDoc.boundingBoxes.map((box) => {
+                        const isCritical = box.status === 'CRITICAL';
+                        const isWarning = box.status === 'WARNING';
+
+                        const boxStyle = isCritical
+                          ? 'border-red-400/50 bg-red-950/40'
+                          : isWarning
+                            ? 'border-amber-400/50 bg-amber-950/30'
+                            : 'border-slate-600 bg-slate-800/80';
+
+                        const statusStyle = isCritical
+                          ? 'text-red-300'
+                          : isWarning
+                            ? 'text-amber-300'
+                            : 'text-emerald-300';
+
+                        return (
+                          <div
+                            key={box.id}
+                            className={`rounded-lg border p-3 ${boxStyle}`}
+                          >
+                            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
+                              <div className="min-w-0">
+                                <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                                  {box.label}
+                                </div>
+                                <div className="mt-1 break-words text-xs font-semibold leading-relaxed text-slate-100">
+                                  {box.text}
+                                </div>
+                              </div>
+
+                              <span
+                                className={`w-fit shrink-0 rounded-md bg-black/20 px-2 py-1 font-mono text-[9px] font-bold ${statusStyle}`}
+                              >
+                                {box.status}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {selectedDoc.boundingBoxes.length === 0 && (
+                      <p className="py-6 text-center text-xs text-slate-400">
+                        No extracted field examples are available for this
+                        artifact.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-start justify-between gap-2 border-t border-slate-200 pt-3">
+                    <div>
+                      <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+                        Artifact timestamp
+                      </div>
+                      <div className="mt-1 break-words font-mono text-[10px] text-slate-600">
+                        {selectedDoc.timestamp}
+                      </div>
+                    </div>
+
+                    <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[9px] font-semibold text-amber-800">
+                      Preview only
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              {/* Structured payload */}
+              <section className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="material-symbols-outlined text-lg text-slate-500"
+                      aria-hidden="true"
+                    >
+                      data_object
+                    </span>
+                    <h3 className="truncate text-xs font-bold text-ink-main">
+                      Structured Payload
+                    </h3>
+                  </div>
+
+                  <span className="shrink-0 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[9px] font-semibold text-slate-600">
+                    JSON
+                  </span>
+                </div>
+
+                <div className="flex flex-1 flex-col bg-[#101827]">
+                  <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
+                    <span className="text-[10px] text-slate-400">
+                      Sample structured representation
+                    </span>
+                    <span className="font-mono text-[9px] text-slate-500">
+                      {selectedDoc.id}
+                    </span>
+                  </div>
+
+                  <pre className="min-h-[280px] flex-1 overflow-auto p-4 font-mono text-[11px] leading-relaxed text-emerald-300 sm:p-5">
+                    {JSON.stringify(
+                      selectedDoc.structuredPayload,
+                      null,
+                      2,
+                    )}
+                  </pre>
+
+                  <div className="border-t border-white/10 px-4 py-3">
+                    <div className="flex items-start gap-2">
+                      <span
+                        className="material-symbols-outlined text-sm text-slate-400"
+                        aria-hidden="true"
+                      >
+                        info
+                      </span>
+                      <p className="text-[10px] leading-relaxed text-slate-400">
+                        This payload is read from the selected sample artifact.
+                        Displaying it here does not confirm database
+                        persistence, schema validation or downstream delivery.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </GlassPanel>
+
+      {/* Implementation status */}
+      <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+          <span
+            className="material-symbols-outlined text-lg"
+            aria-hidden="true"
+          >
+            integration_instructions
+          </span>
+        </div>
+
+        <div className="space-y-1">
+          <h3 className="text-xs font-bold text-ink-main">
+            Backend integration
+          </h3>
+          <p className="text-xs leading-relaxed text-ink-muted">
+            This page currently uses sample documents. Live ingestion requires
+            a connected document-upload or ingestion API, server-side
+            extraction and validation results, and a real processing status
+            response. No document is uploaded or processed by this page.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };

@@ -7,10 +7,13 @@ import {
   TileLayer,
   useMap,
 } from 'react-leaflet';
-import L, { type LatLngExpression, type LatLngBoundsExpression } from 'leaflet';
+import L, {
+  type LatLngExpression,
+  type LatLngBoundsExpression,
+} from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-import { BloodGroup } from '@/core/types/inventory';
+import type { BloodGroup } from '@/core/types/inventory';
 
 interface RadarNetwork3DProps {
   selectedSerotype: BloodGroup;
@@ -52,6 +55,9 @@ interface OverpassResponse {
 const MAP_CENTER: LatLngExpression = [28.6139, 77.209];
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+
+// Avoid repeatedly querying an overloaded public service.
+const RETRY_COOLDOWN_MS = 30_000;
 
 const DEMO_FACILITIES = [
   {
@@ -140,6 +146,22 @@ const getDemoStock = (index: number, bloodGroup: BloodGroup) => {
   }
 
   return base;
+};
+
+const applyDemoStock = (
+  hospital: HospitalPlace,
+  index: number,
+  bloodGroup: BloodGroup,
+): HospitalPlace => {
+  const demo = getDemoStock(index, bloodGroup);
+
+  return {
+    ...hospital,
+    status: demo.status,
+    currentStock: demo.currentStock,
+    safetyFloor: demo.safetyFloor,
+    depletionHours: demo.depletionHours,
+  };
 };
 
 const createHospitalIcon = (
@@ -243,7 +265,9 @@ function getElementPosition(
   return null;
 }
 
-function getHospitalAddress(tags: Record<string, string | undefined>) {
+function getHospitalAddress(
+  tags: Record<string, string | undefined>,
+) {
   const street = tags['addr:street'];
   const houseNumber = tags['addr:housenumber'];
   const area = tags['addr:suburb'] || tags['addr:neighbourhood'];
@@ -260,6 +284,73 @@ function getHospitalAddress(tags: Record<string, string | undefined>) {
     : 'Address not available in OpenStreetMap data';
 }
 
+function parseHospitalResponse(data: OverpassResponse): HospitalPlace[] {
+  const elements = data.elements ?? [];
+
+  const mapped = elements
+    .filter((element) => {
+      const tags = element.tags;
+
+      return Boolean(
+        tags &&
+          (tags.name || tags['name:en'] || tags['official_name']),
+      );
+    })
+    .map((element) => ({
+      element,
+      position: getElementPosition(element),
+    }))
+    .filter(
+      (
+        item,
+      ): item is {
+        element: OverpassElement;
+        position: [number, number];
+      } => item.position !== null,
+    );
+
+  const seen = new Set<string>();
+
+  return mapped
+    .filter(({ element }) => {
+      const tags = element.tags ?? {};
+      const name =
+        tags['name:en'] ||
+        tags.name ||
+        tags['official_name'] ||
+        'Hospital';
+
+      const uniqueKey = `${element.type}-${element.id}-${name.toLowerCase()}`;
+
+      if (seen.has(uniqueKey)) return false;
+
+      seen.add(uniqueKey);
+      return true;
+    })
+    .slice(0, 30)
+    .map(({ element, position }, index) => {
+      const tags = element.tags ?? {};
+      const demo = getDemoStock(index, 'O-');
+
+      return {
+        id: `osm-${element.type}-${element.id}`,
+        name:
+          tags['name:en'] ||
+          tags.name ||
+          tags['official_name'] ||
+          'Hospital',
+        address: getHospitalAddress(tags),
+        position,
+        status: demo.status,
+        currentStock: demo.currentStock,
+        safetyFloor: demo.safetyFloor,
+        depletionHours: demo.depletionHours,
+        demoFacilityId:
+          DEMO_FACILITIES[index % DEMO_FACILITIES.length].id,
+      };
+    });
+}
+
 export const RadarNetwork3D: React.FC<RadarNetwork3DProps> = ({
   selectedSerotype,
   selectedFacilityId,
@@ -273,7 +364,10 @@ export const RadarNetwork3D: React.FC<RadarNetwork3DProps> = ({
   const [loadingPlaces, setLoadingPlaces] = useState(true);
   const [placesError, setPlacesError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [retryBlockedUntil, setRetryBlockedUntil] = useState(0);
+  const [retryWaitSeconds, setRetryWaitSeconds] = useState(0);
 
+  // Load geographic data independently of blood-group and facility changes.
   useEffect(() => {
     const controller = new AbortController();
 
@@ -281,7 +375,6 @@ export const RadarNetwork3D: React.FC<RadarNetwork3DProps> = ({
       setLoadingPlaces(true);
       setPlacesError(null);
 
-      // Search for mapped hospitals within 22 km of central Delhi.
       const query = `
         [out:json][timeout:25];
         (
@@ -296,119 +389,87 @@ export const RadarNetwork3D: React.FC<RadarNetwork3DProps> = ({
         const response = await fetch(OVERPASS_URL, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            'Content-Type':
+              'application/x-www-form-urlencoded;charset=UTF-8',
           },
           body: new URLSearchParams({ data: query }).toString(),
           signal: controller.signal,
         });
 
         if (!response.ok) {
-          throw new Error(
-            `Hospital map service returned HTTP ${response.status}.`,
-          );
+          const statusMessage =
+            response.status === 429
+              ? 'The hospital data service is rate-limiting requests.'
+              : response.status === 502 || response.status === 503
+                ? 'The hospital data service is temporarily unavailable.'
+                : `Hospital map service returned HTTP ${response.status}.`;
+
+          throw new Error(statusMessage);
         }
 
         const data = (await response.json()) as OverpassResponse;
-        const elements = data.elements ?? [];
-
-        const mapped = elements
-          .filter((element) => {
-            const tags = element.tags;
-            return Boolean(
-              tags &&
-                (tags.name ||
-                  tags['name:en'] ||
-                  tags['official_name']),
-            );
-          })
-          .map((element) => ({
-            element,
-            position: getElementPosition(element),
-          }))
-          .filter(
-            (
-              item,
-            ): item is {
-              element: OverpassElement;
-              position: [number, number];
-            } => item.position !== null,
-          );
-
-        const seen = new Set<string>();
-
-        const nextHospitals: HospitalPlace[] = mapped
-          .filter(({ element }) => {
-            const tags = element.tags ?? {};
-            const name =
-              tags['name:en'] ||
-              tags.name ||
-              tags['official_name'] ||
-              'Hospital';
-
-            const uniqueKey = `${name.toLowerCase()}-${element.id}`;
-
-            if (seen.has(uniqueKey)) return false;
-
-            seen.add(uniqueKey);
-            return true;
-          })
-          .slice(0, 30)
-          .map(({ element, position }, index) => {
-            const tags = element.tags ?? {};
-            const demo = getDemoStock(index, selectedSerotype);
-
-            return {
-              id: `osm-${element.type}-${element.id}`,
-              name:
-                tags['name:en'] ||
-                tags.name ||
-                tags['official_name'] ||
-                'Hospital',
-              address: getHospitalAddress(tags),
-              position,
-              status: demo.status,
-              currentStock: demo.currentStock,
-              safetyFloor: demo.safetyFloor,
-              depletionHours: demo.depletionHours,
-              demoFacilityId:
-                DEMO_FACILITIES[index % DEMO_FACILITIES.length].id,
-            };
-          });
+        const nextHospitals = parseHospitalResponse(data);
 
         if (nextHospitals.length === 0) {
-          setHospitals([]);
+          // Preserve any previously loaded data on an empty response.
           setPlacesError(
-            'No named hospitals were returned for this area. Try again later or check OpenStreetMap coverage.',
+            'No named hospitals were returned. Previously loaded locations, if any, are being preserved.',
           );
           return;
         }
 
-        setHospitals(nextHospitals);
+        setHospitals((previousHospitals) => {
+          // Preserve the current marker selection where possible.
+          const existingSelection =
+            previousHospitals.find(
+              (hospital) => hospital.id === selectedPlaceId,
+            )?.id ?? null;
 
-        // Keep the selected facility marker in sync after a reload.
-        setSelectedPlaceId((previousId) => {
-          if (
-            previousId &&
-            nextHospitals.some((hospital) => hospital.id === previousId)
-          ) {
-            return previousId;
-          }
+          setSelectedPlaceId((previousId) => {
+            if (
+              previousId &&
+              nextHospitals.some(
+                (hospital) => hospital.id === previousId,
+              )
+            ) {
+              return previousId;
+            }
 
-          const parentSelected = nextHospitals.find(
-            (hospital) =>
-              hospital.demoFacilityId === selectedFacilityId,
+            const parentSelected = nextHospitals.find(
+              (hospital) =>
+                hospital.demoFacilityId === selectedFacilityId,
+            );
+
+            return (
+              parentSelected?.id ??
+              existingSelection ??
+              nextHospitals[0].id
+            );
+          });
+
+          return nextHospitals.map((hospital, index) =>
+            applyDemoStock(hospital, index, selectedSerotype),
           );
-
-          return parentSelected?.id ?? nextHospitals[0].id;
         });
+
+        setRetryBlockedUntil(0);
       } catch (error) {
         if (controller.signal.aborted) return;
 
-        setHospitals([]);
-        setPlacesError(
+        const message =
           error instanceof Error
-            ? `${error.message} The public map data service may be busy or temporarily unavailable.`
-            : 'Could not load hospital locations. Please try again.',
+            ? error.message
+            : 'Could not load hospital locations.';
+
+        // Avoid automatic retry loops when the public service is busy.
+        setRetryBlockedUntil(Date.now() + RETRY_COOLDOWN_MS);
+
+        setPlacesError(
+          `${message} ${
+            hospitals.length > 0
+              ? 'Previously loaded hospital locations are still displayed.'
+              : 'The map itself can remain available while hospital locations are retried.'
+          }`,
         );
       } finally {
         if (!controller.signal.aborted) {
@@ -420,7 +481,42 @@ export const RadarNetwork3D: React.FC<RadarNetwork3DProps> = ({
     void loadHospitals();
 
     return () => controller.abort();
-  }, [selectedSerotype, retryCount, selectedFacilityId]);
+    // Intentionally only re-run for an explicit retry.
+    // Selection changes do not require another geographic lookup.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retryCount]);
+
+  // Update illustrative stock without calling the external hospital API.
+  useEffect(() => {
+    setHospitals((current) =>
+      current.map((hospital, index) =>
+        applyDemoStock(hospital, index, selectedSerotype),
+      ),
+    );
+  }, [selectedSerotype]);
+
+  // Count down the retry cooldown only while a failure is present.
+  useEffect(() => {
+    if (!placesError || retryBlockedUntil <= Date.now()) {
+      setRetryWaitSeconds(0);
+      return;
+    }
+
+    const updateRemaining = () => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((retryBlockedUntil - Date.now()) / 1000),
+      );
+
+      setRetryWaitSeconds(remaining);
+    };
+
+    updateRemaining();
+
+    const timer = window.setInterval(updateRemaining, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [placesError, retryBlockedUntil]);
 
   const selectedHospital = useMemo(
     () =>
@@ -445,6 +541,12 @@ export const RadarNetwork3D: React.FC<RadarNetwork3DProps> = ({
     }
   }, [selectedHospitalFromParent]);
 
+  const handleRetry = () => {
+    if (Date.now() < retryBlockedUntil) return;
+
+    setRetryCount((count) => count + 1);
+  };
+
   return (
     <div
       className={`relative isolate h-[460px] w-full overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-[0_18px_50px_rgba(20,30,45,.14)] sm:h-[500px] lg:h-[560px] ${className}`}
@@ -456,7 +558,11 @@ export const RadarNetwork3D: React.FC<RadarNetwork3DProps> = ({
         maxZoom={18}
         scrollWheelZoom
         className="h-full w-full"
-        style={{ height: '100%', width: '100%', background: '#eaf0e8' }}
+        style={{
+          height: '100%',
+          width: '100%',
+          background: '#eaf0e8',
+        }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors'
@@ -516,7 +622,9 @@ export const RadarNetwork3D: React.FC<RadarNetwork3DProps> = ({
                     <div className="flex items-center justify-between gap-2">
                       <span
                         className="text-xs font-bold"
-                        style={{ color: STATUS[hospital.status].color }}
+                        style={{
+                          color: STATUS[hospital.status].color,
+                        }}
                       >
                         {STATUS[hospital.status].label}
                       </span>
@@ -576,7 +684,7 @@ export const RadarNetwork3D: React.FC<RadarNetwork3DProps> = ({
         })}
       </MapContainer>
 
-      {/* High-contrast map label */}
+      {/* Map label */}
       <div className="pointer-events-none absolute left-3 top-3 z-[500] flex max-w-[calc(100%-24px)] flex-wrap items-center gap-2 sm:left-4 sm:top-4">
         <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-[0_4px_18px_rgba(15,23,42,.16)]">
           <span className="h-2.5 w-2.5 rounded-full bg-rose-600 ring-4 ring-rose-100" />
@@ -626,13 +734,19 @@ export const RadarNetwork3D: React.FC<RadarNetwork3DProps> = ({
         <div className="absolute bottom-[68px] right-3 z-[500] max-w-[min(360px,calc(100%-24px))] rounded-xl border border-rose-200 bg-white p-3 text-xs leading-5 text-rose-900 shadow-lg sm:bottom-4 sm:right-4">
           <p>{placesError}</p>
 
-          <button
-            type="button"
-            onClick={() => setRetryCount((count) => count + 1)}
-            className="mt-2 rounded-lg bg-[#8f1028] px-3 py-1.5 font-bold text-white hover:bg-[#6f0c1f]"
-          >
-            Try again
-          </button>
+          {retryWaitSeconds > 0 ? (
+            <p className="mt-2 text-[11px] font-semibold text-slate-600">
+              You can retry in {retryWaitSeconds} seconds.
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="mt-2 rounded-lg bg-[#8f1028] px-3 py-1.5 font-bold text-white hover:bg-[#6f0c1f]"
+            >
+              Try again
+            </button>
+          )}
         </div>
       )}
 

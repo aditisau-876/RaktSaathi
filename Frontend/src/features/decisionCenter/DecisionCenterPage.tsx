@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { GlassPanel } from '@/components/common/GlassPanel';
 import { Button } from '@/components/common/Button';
@@ -7,26 +7,43 @@ import { useIncident } from '@/context/IncidentContext';
 
 export const DecisionCenterPage: React.FC = () => {
   const { activeIncident, executeTransfer, isTransferPrimed } = useIncident();
+  const REQUIRED_BUFFER = 26;
+  const MAX_DEPLOYABLE_SURPLUS = 32;
+  const requiredTransferUnits = Math.max(0, REQUIRED_BUFFER - activeIncident.currentStock);
   const [transferUnits, setTransferUnits] = useState<number>(18);
   const [transferDispatched, setTransferDispatched] = useState<boolean>(isTransferPrimed);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Keep this page aligned with transfer state maintained by the incident context.
+  useEffect(() => {
+    setTransferDispatched(isTransferPrimed);
+  }, [isTransferPrimed]);
+
   const handleVerifyTransfer = () => {
+    if (!Number.isFinite(transferUnits) || !Number.isInteger(transferUnits)) {
+      setErrorMsg('Enter a whole number of units.');
+      return;
+    }
     if (transferUnits <= 0) {
       setErrorMsg('Transfer volume must be at least 1 unit.');
       return;
     }
-    if (transferUnits > 32) {
-      setErrorMsg('Cannot exceed deployable surplus of 32 units at Bank B.');
+    if (transferUnits > MAX_DEPLOYABLE_SURPLUS) {
+      setErrorMsg(`Cannot exceed deployable surplus of ${MAX_DEPLOYABLE_SURPLUS} units at Bank B.`);
       return;
     }
+    if (transferUnits < requiredTransferUnits) {
+      setErrorMsg(`At least ${requiredTransferUnits} units are needed to restore the ${REQUIRED_BUFFER}-unit safety buffer.`);
+      return;
+    }
+
     setErrorMsg(null);
 
     const result = executeTransfer(transferUnits);
     setTransferDispatched(true);
     setToastMessage(result.message);
-    setTimeout(() => setToastMessage(null), 6000);
+    window.setTimeout(() => setToastMessage(null), 6000);
   };
 
   return (
@@ -189,7 +206,7 @@ export const DecisionCenterPage: React.FC = () => {
                   <span className={`text-4xl font-display font-extrabold tabular-nums ${
                     transferDispatched ? 'text-emerald-700' : 'text-primary'
                   }`}>
-                    {transferDispatched ? 26 : activeIncident.currentStock}
+                    {transferDispatched ? activeIncident.currentStock + transferUnits : activeIncident.currentStock}
                   </span>
                   <span className="text-lg font-display font-bold text-ink-secondary">
                     / 26 Units Buffer
@@ -339,7 +356,7 @@ export const DecisionCenterPage: React.FC = () => {
                 01 • Inter-Bank Cold-Chain Transfer from Noida Regional Center (Bank B)
               </h3>
               <p className="text-sm text-ink-secondary leading-relaxed">
-                Bank B holds 47 units of O− with a required floor of only 15u (<strong className="text-ink-main">+32u deployable surplus</strong>). Transferring 18 units completely closes the Bank A deficit without causing a shortage at Noida.
+                Bank B holds 47 units of O− with a required floor of only 15u (<strong className="text-ink-main">+32u deployable surplus</strong>). Transferring the required units restores Bank A's 26-unit safety buffer while staying within Bank B's deployable surplus.
               </p>
 
               {/* Transit Parameters */}
@@ -374,8 +391,9 @@ export const DecisionCenterPage: React.FC = () => {
                   type="number"
                   value={transferUnits}
                   onChange={e => setTransferUnits(Number(e.target.value))}
-                  min={1}
-                  max={32}
+                  min={requiredTransferUnits || 1}
+                  max={MAX_DEPLOYABLE_SURPLUS}
+                  step={1}
                   className="w-16 px-2 py-1 text-center font-mono font-bold text-sm bg-white border border-slate-200 rounded text-ink-main focus:outline-none focus:border-primary"
                 />
               </div>
