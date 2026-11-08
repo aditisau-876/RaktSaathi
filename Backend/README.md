@@ -35,6 +35,7 @@ Open http://127.0.0.1:8000/docs for interactive API docs and http://127.0.0.1:80
 - `GET /api/v1/campaigns` — campaign history
 - `GET /api/v1/integrations/status` — integration readiness
 - `POST /api/v1/integrations/snowflake/test` — test optional Snowflake connectivity
+- `POST /api/v1/integrations/snowflake/sync` — one-way snapshot export of inventory, requests, donation aggregates and pseudonymous donor metadata to Snowflake (run `snowflake/schema.sql` first)
 
 ## 3. Connect the frontend
 
@@ -67,7 +68,7 @@ Create a Cloudinary account, copy its cloud name, API key, and API secret into t
 
 SQLite is the runnable transactional store for this starter. Snowflake is optional and currently has a connection-test endpoint plus a starter analytics schema at `snowflake/schema.sql`; the app does **not** yet automatically mirror every SQLite change into Snowflake or run its risk queries there. To make Snowflake the source of truth, implement a repository/warehouse layer and migration/ingestion jobs, then move the risk/forecast queries to Snowflake and add integration tests. This is a deliberate, visible limitation rather than fake integration.
 
-Set Snowflake connection fields in `.env` and call `POST /api/v1/integrations/snowflake/test`. Run the schema SQL in the selected database/schema using a restricted service role. Never expose Snowflake credentials in Vite `VITE_*` variables.
+Set Snowflake connection fields in `.env`, run `snowflake/schema.sql` in that database/schema, then call `POST /api/v1/integrations/snowflake/test` followed by `POST /api/v1/integrations/snowflake/sync`. Use a restricted service role. The sync endpoint intentionally excludes donor contact details. Never expose Snowflake credentials in Vite `VITE_*` variables.
 
 ## 6. What the risk number means
 
@@ -110,3 +111,12 @@ Generate a campaign draft:
   "format": "1:1_SQUARE"
 }
 ```
+
+
+## 9. Integration status truth
+
+- Cloudinary is active only when all three Cloudinary credentials are present. It stores uploaded media and generated campaign SVG assets; it does not perform OCR in this codebase.
+- Snowflake is active only when its connection fields are present. The app database remains SQLite; the explicit sync endpoint exports a snapshot to Snowflake.
+- OCR is not implemented. Document uploads are stored, marked `NOT_RUN`, and must not be used to update stock automatically.
+- Campaign delivery (WhatsApp/SMS/donor app/DOOH) is not implemented. Campaign creation only creates a draft asset.
+- CORS now reads `FRONTEND_ORIGINS` from `.env`; add the exact frontend origin used by your Vite server.
