@@ -175,15 +175,17 @@ export const HospitalRequestsPage: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          hospital_name: hospitalName.trim(),
-          department: department.trim() || null,
-          lead_clinician: null,
-          blood_group: bloodGroup,
-          units_requested: unitsRequested,
-          priority,
-          indication: indication.trim() || null,
-        }),
+        body: JSON.stringify(
+          {
+            hospital_name: hospitalName.trim(),
+            department: department.trim() || "General",
+            lead_clinician: "Not provided",
+            blood_group: bloodGroup,
+            units_requested: unitsRequested,
+            priority,
+            indication: indication.trim() || "",
+          }
+        ),
       });
 
       if (!response.ok) {

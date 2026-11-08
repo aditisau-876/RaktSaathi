@@ -181,7 +181,7 @@ export const ShortageRadarPage: React.FC = () => {
     setError(null);
 
     try {
-      const response = await api<RadarApiResponse>('/radar');
+      const response = await api.get<RadarApiResponse>('/radar');
 
       if (!response || !Array.isArray(response.items)) {
         throw new Error(

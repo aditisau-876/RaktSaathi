@@ -59,7 +59,7 @@ function formatDateTime(value: string) {
 }
 
 function getStatusClass(status: StockStatus) {
-  return status.toLowerCase().replaceAll("_", "-");
+  return status.toLowerCase().replace(/_/g, "-");
 }
 
 function getFriendlyError(error: unknown) {

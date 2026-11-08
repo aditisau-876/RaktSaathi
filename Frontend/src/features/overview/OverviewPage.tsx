@@ -227,7 +227,7 @@ export const OverviewPage: React.FC = () => {
 
     try {
       // Existing backend endpoint: GET /api/v1/radar
-      const response = await api<RadarResponse>('/radar');
+      const response = await api.get<RadarResponse>('/radar');
       const normalized = normalizeRadarResponse(response);
 
       setDashboard(normalized);

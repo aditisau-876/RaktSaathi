@@ -61,61 +61,59 @@ export const CampaignStudioPage: React.FC = () => {
   ];
 
   const triggerRegeneration = async () => {
-    setIsGenerating(true);
-    setCurrentStep(1);
-    setApiError(null);
-    try {
-      // Expected backend contract: POST /campaigns/generate returns { id | campaign_id, ... }.
-      const result = await requestApi('/campaigns/generate', {
-        method: 'POST',
-        body: JSON.stringify({
-          incident_id: 'INC-2026-0881',
-          blood_group: activeIncident.bloodGroup,
-          target_radius_km: targetRadius,
-          target_donors: targetDonors,
-          headline,
-          body_copy: bodyCopy,
-          format: activeFormat,
-          channels,
-        }),
-      });
-      const id = result?.campaign_id ?? result?.id ?? result?.campaign?.id ?? null;
-      if (id !== null) setCampaignId(id);
-      setCurrentStep(5);
-      setIsGenerating(false);
-    } catch (error) {
-      setApiError(error instanceof Error ? error.message : 'Could not generate campaign.');
-      setCurrentStep(1);
-      setIsGenerating(false);
+  setIsGenerating(true);
+  setCurrentStep(1);
+  setApiError(null);
+  setCampaignId(null);
+  setIsBroadcastDispatched(false);
+
+  try {
+    const result = await requestApi("/campaigns", {
+      method: "POST",
+      body: JSON.stringify({
+        incident_id: "INC-2026-0881",
+        blood_group: activeIncident.bloodGroup,
+        headline,
+        body_text: bodyCopy,
+        format: activeFormat,
+      }),
+    });
+
+    const id = result?.id ?? null;
+
+    if (id === null) {
+      throw new Error(
+        "The backend did not return a campaign ID."
+      );
     }
-  };
+
+    setCampaignId(id);
+    setCurrentStep(5);
+  } catch (error) {
+    setApiError(
+      error instanceof Error
+        ? error.message
+        : "Could not generate the campaign."
+    );
+    setCurrentStep(1);
+  } finally {
+    setIsGenerating(false);
+  }
+};
 
   const handleDeployBroadcast = async () => {
-    if (!campaignId) {
-      setApiError('Generate the campaign first. The backend must return a campaign ID before dispatch.');
-      return;
-    }
-    if (channels.length === 0) {
-      setApiError('Select at least one syndication channel.');
-      return;
-    }
-    setIsDispatching(true);
-    setApiError(null);
-    try {
-      // Expected backend contract: POST /campaigns/{id}/dispatch.
-      const result = await requestApi(`/campaigns/${encodeURIComponent(String(campaignId))}/dispatch`, {
-        method: 'POST',
-        body: JSON.stringify({ channels, target_radius_km: targetRadius, target_donors: targetDonors }),
-      });
-      setDispatchResult(result && typeof result === 'object' ? result : {});
-      setIsBroadcastDispatched(true);
-      setShowConfirmationModal(true);
-    } catch (error) {
-      setApiError(error instanceof Error ? error.message : 'Campaign dispatch failed.');
-    } finally {
-      setIsDispatching(false);
-    }
-  };
+  if (!campaignId) {
+    setApiError("Generate and save the campaign first.");
+    return;
+  }
+
+  setIsBroadcastDispatched(false);
+  setDispatchResult(null);
+  setApiError(
+    "Campaign delivery is not implemented by the current backend. " +
+    "The campaign draft is saved, but no messages have been sent."
+  );
+};
 
   const toggleChannel = (channel: string, checked: boolean) => {
     setChannels(previous => checked
